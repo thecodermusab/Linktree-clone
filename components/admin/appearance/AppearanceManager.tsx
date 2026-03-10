@@ -39,17 +39,21 @@ const SECTIONS = ['Header', 'Theme', 'Wallpaper', 'Text', 'Buttons', 'Colors', '
 type Section = (typeof SECTIONS)[number]
 
 const GOOGLE_FONTS = [
-  'Inter', 'Red Hat Display', 'Roboto', 'Open Sans', 'Lato', 'Montserrat',
-  'Poppins', 'Nunito', 'Raleway', 'Playfair Display', 'Merriweather',
-  'Ubuntu', 'Source Sans 3', 'DM Sans', 'Outfit', 'Plus Jakarta Sans',
-  'Space Grotesk', 'Syne', 'Lexend', 'Figtree',
+  { name: 'Albert Sans', pro: false }, { name: 'Belanosima', pro: true },
+  { name: 'Bricolage Grotesque', pro: true }, { name: 'DM Sans', pro: false },
+  { name: 'Epilogue', pro: false }, { name: 'IBM Plex Sans', pro: false },
+  { name: 'Inter', pro: false }, { name: 'Lato', pro: true },
+  { name: 'Link Sans', pro: false }, { name: 'M Plus Rounded', pro: true },
+  { name: 'Manrope', pro: false }, { name: 'Oxanium', pro: false },
+  { name: 'Poppins', pro: true }, { name: 'Red Hat Display', pro: false },
+  { name: 'Roboto', pro: true }, { name: 'Rubik', pro: true },
+  { name: 'Space Grotesk', pro: true }, { name: 'Syne', pro: true },
+  { name: 'BioRhyme', pro: true }, { name: 'Bitter', pro: true },
+  { name: 'Caudex', pro: false }, { name: 'Corben', pro: false },
+  { name: 'Domine', pro: false }, { name: 'Hahmlet', pro: false }
 ]
 
-const TITLE_FONTS = [
-  'Gasoek One', 'Bebas Neue', 'Black Han Sans', 'Bungee', 'Abril Fatface',
-  'Permanent Marker', 'Righteous', 'Orbitron', 'Teko', 'Oswald',
-  'Anton', 'Russo One', 'Fredoka', 'Pacifico', 'Satisfy',
-]
+const TITLE_FONTS = GOOGLE_FONTS
 
 // Layout constants or helpers can go here
 const THEMES = [
@@ -633,7 +637,11 @@ export default function AppearanceManager() {
                           onChange={(e) => update({ title_font: e.target.value })}
                           className="w-full px-4 py-3 bg-gray-50 border border-transparent hover:border-gray-200 rounded-xl text-[14px] leading-[20px] font-[400] text-[#212529] focus:bg-white focus:ring-2 focus:ring-black focus:border-black transition-all outline-none appearance-none cursor-pointer"
                         >
-                          {TITLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                          {TITLE_FONTS.map(fontOption => (
+                            <option key={fontOption.name} value={fontOption.name}>
+                              {fontOption.name}
+                            </option>
+                          ))}
                         </select>
                      </div>
                   )}
@@ -655,7 +663,11 @@ export default function AppearanceManager() {
                         onChange={(e) => update({ title_font: e.target.value })}
                         className="w-full px-4 py-3 bg-gray-50 border border-transparent hover:border-gray-200 rounded-xl text-[15px] focus:bg-white focus:ring-2 focus:ring-black focus:border-black transition-all outline-none appearance-none cursor-pointer"
                       >
-                        {TITLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                        {TITLE_FONTS.map(fontOption => (
+                          <option key={fontOption.name} value={fontOption.name}>
+                            {fontOption.name}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -665,7 +677,11 @@ export default function AppearanceManager() {
                         onChange={(e) => update({ page_font: e.target.value })}
                         className="w-full px-4 py-3 bg-gray-50 border border-transparent hover:border-gray-200 rounded-xl text-[15px] focus:bg-white focus:ring-2 focus:ring-black focus:border-black transition-all outline-none appearance-none cursor-pointer"
                       >
-                        {GOOGLE_FONTS.map(f => <option key={f} value={f}>{f}</option>)}
+                        {GOOGLE_FONTS.map(fontOption => (
+                        <option key={fontOption.name} value={fontOption.name}>
+                          {fontOption.name}
+                        </option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -1187,7 +1203,7 @@ export default function AppearanceManager() {
                      <span className="text-[13px] font-[400] text-[#676b5f]">Matches page font by default</span>
                    </div>
                    <div className="flex items-center gap-3">
-                     <div className="w-[20px] h-[20px] bg-[#82847a] rounded-full flex items-center justify-center text-white">
+                     <div className="w-[20px] h-[20px] bg-[#82847a] rounded-full flex items-center justify-center text-white shrink-0">
                        <Zap size={10} fill="currentColor" strokeWidth={0} />
                      </div>
                      <button
@@ -1202,6 +1218,7 @@ export default function AppearanceManager() {
                 {/* Alternative Title Font Select (only if enabled) */}
                 {profile.use_alt_title_font && (
                    <div className="space-y-3 pt-2">
+                     <h3 className="text-[14px] font-[600] text-[#111827]">Title font</h3>
                      <button
                        onClick={() => setFontModalType('title')}
                        className="w-[454px] flex items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] text-[15px] text-[#111827] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
@@ -1289,23 +1306,23 @@ export default function AppearanceManager() {
       {/* Font Selection Modal */}
       {fontModalType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[511px] h-full max-h-[890px] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden relative">
+          <div className="w-[511px] h-[890px] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden relative border border-gray-100">
             <div className="flex items-center justify-center relative py-[24px] shrink-0">
               <h2 className="text-[16px] font-[600] text-[#111827]">
                 {fontModalType === 'page' ? 'Page font' : 'Title font'}
               </h2>
               <button 
                 onClick={() => setFontModalType(null)} 
-                className="absolute right-6 top-1/2 -translate-y-1/2 text-[#111827] hover:bg-gray-100 p-1.5 rounded-full"
+                className="absolute right-6 top-1/2 -translate-y-1/2 text-[#111827] hover:bg-gray-100 p-[4px] rounded-[8px] border-[1.5px] border-[#111827]"
               >
-                <X size={20} strokeWidth={1.5} />
+                <X size={16} strokeWidth={2} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 pb-8 custom-scrollbar">
-              <div className="grid grid-cols-2 gap-3 justify-items-center">
-                 {(fontModalType === 'page' ? GOOGLE_FONTS : TITLE_FONTS).map((font, idx) => {
+              <div className="grid grid-cols-2 gap-[12px] justify-items-center">
+                 {(fontModalType === 'page' ? GOOGLE_FONTS : TITLE_FONTS).map((fontOption) => {
+                   const { name: font, pro: isPro } = fontOption;
                    const isActive = profile[fontModalType === 'page' ? 'page_font' : 'title_font'] === font;
-                   const isPro = idx % 3 === 2; // fake pro logic to match aesthetic
                    return (
                      <button
                        key={font}
