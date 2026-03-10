@@ -1,13 +1,19 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush } from 'lucide-react'
+import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush, PlaySquare } from 'lucide-react'
 import MobilePreview from './MobilePreview'
+import {
+  GRADIENT_PRESET_VALUES,
+  type BackgroundFilter,
+  parseBackgroundEffect,
+  stringifyBackgroundEffect,
+} from '@/lib/appearance'
 
 type Profile = {
   display_name: string
   tagline: string
-  avatar_url: string
+  avatar_url: string | null
   background_type: string
   background_value: string
   background_effect: string
@@ -65,20 +71,83 @@ const THEMES = [
   { id: 'nourish', name: 'Nourish', bg: 'bg-[#65a30d]', pro: true, aa: 'text-[#d9f99d] font-bold', btn: 'bg-[#d9f99d] rounded-full', payload: { background_type: 'color', background_value: '#65a30d', button_style: 'solid', button_color: '#d9f99d', button_text_color: '#3f6212', button_corners: 'full', page_text_color: '#ecfccb', title_color: '#d9f99d', page_font: 'Inter', use_alt_title_font: true, title_font: 'Outfit' } }
 ]
 
+const WALLPAPER_OPTIONS = [
+  { id: 'fill', label: 'Fill', bg: 'bg-[#7e22ce]' },
+  { id: 'gradient', label: 'Gradient', bg: 'bg-gradient-to-b from-[#f9532d] to-[#122ab2]' },
+  { id: 'blur', label: 'Blur', bg: 'bg-[#701a8a]' },
+  { id: 'pattern', label: 'Pattern', bg: 'bg-[#5f1778] bg-[linear-gradient(to_right,#a855f7_2px,transparent_2px),linear-gradient(to_bottom,#a855f7_2px,transparent_2px)] bg-[size:36px_36px]', pro: true },
+  { id: 'image', label: 'Image', icon: ImageIcon2, pro: true, bg: 'bg-[#f3f3f1] border-2 border-[#e0e0e0]' },
+  { id: 'video', label: 'Video', icon: PlaySquare, pro: true, bg: 'bg-[#f3f3f1] border-2 border-[#e0e0e0]' }
+]
+
+const GRADIENT_DIRECTIONS = [
+  { value: 'to bottom', label: 'Vertical' },
+  { value: 'to right', label: 'Horizontal' },
+  { value: 'to bottom right', label: 'Diagonal' },
+  { value: 'to top right', label: 'Reverse' },
+] as const
+
+const EFFECT_OPTIONS: Array<{ value: BackgroundFilter; label: string }> = [
+  { value: 'none', label: 'None' },
+  { value: 'mono', label: 'Mono' },
+  { value: 'blur', label: 'Blur' },
+  { value: 'halftone', label: 'Halftone' },
+]
+
+function parseGradientValue(value: string) {
+  type GradientDirection = (typeof GRADIENT_DIRECTIONS)[number]['value']
+  const match = value.match(/linear-gradient\(([^,]+),\s*([^,]+),\s*([^)]+)\)/i)
+  const validDirections = new Set<GradientDirection>(GRADIENT_DIRECTIONS.map(direction => direction.value))
+  const fallback = {
+    direction: 'to bottom' as GradientDirection,
+    from: '#f9532d',
+    to: '#122ab2',
+  }
+
+  if (!match) {
+    return fallback
+  }
+
+  const rawDirection = (match[1].trim() === '135deg' ? 'to bottom right' : match[1].trim()) as GradientDirection
+
+  return {
+    direction: validDirections.has(rawDirection) ? rawDirection : fallback.direction,
+    from: match[2].trim(),
+    to: match[3].trim(),
+  }
+}
+
+function buildGradientValue(direction: string, from: string, to: string) {
+  return `linear-gradient(${direction}, ${from}, ${to})`
+}
+
 export default function AppearanceManager() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saved, setSaved] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [uploadingKind, setUploadingKind] = useState<'image' | 'video' | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [activeSection, setActiveSection] = useState<Section>('Header')
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const backgroundImageInputRef = useRef<HTMLInputElement>(null)
+  const backgroundVideoInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const taglineRef = useRef<HTMLTextAreaElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [links, setLinks] = useState<any[]>([])
   const [logoUploading, setLogoUploading] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
+  const hasLoadedProfileRef = useRef(false)
+
+  const [wallpaperState, setWallpaperState] = useState({
+    style: 'gradient',
+    gradStyle: 'pre-made',
+    preset: 4,
+    animate: false,
+    effect: 'none' as BackgroundFilter,
+    direction: 'to bottom',
+    fromColor: '#f9532d',
+    toColor: '#122ab2',
+  })
 
   useEffect(() => {
     fetch('/api/profile')
@@ -114,54 +183,220 @@ export default function AppearanceManager() {
     }
   }, [profile?.tagline, activeSection])
 
-  const update = (fields: Partial<Profile>) => {
-    setProfile(prev => prev ? { ...prev, ...fields } : prev)
+  useEffect(() => {
+    if (!profile) return
+
+    const effectState = parseBackgroundEffect(profile.background_effect)
+    const gradient = parseGradientValue(profile.background_value)
+    const presetIndex = GRADIENT_PRESET_VALUES.findIndex(gradientValue => gradientValue === profile.background_value)
+
+    setWallpaperState({
+      style:
+        profile.background_type === 'color' || profile.background_type === 'fill'
+          ? 'fill'
+          : ['gradient', 'blur', 'pattern', 'image', 'video'].includes(profile.background_type)
+            ? profile.background_type
+            : 'gradient',
+      gradStyle: presetIndex >= 0 ? 'pre-made' : 'custom',
+      preset: presetIndex >= 0 ? presetIndex : 4,
+      animate: effectState.animated,
+      effect: effectState.filter,
+      direction: gradient.direction,
+      fromColor: gradient.from,
+      toColor: gradient.to,
+    })
+  }, [profile])
+
+  useEffect(() => {
+    if (!profile) return
+
+    if (!hasLoadedProfileRef.current) {
+      hasLoadedProfileRef.current = true
+      setSaved(true)
+      return
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await fetch('/api/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile),
+        })
+
+        if (!response.ok) {
+          const result = await response.json().catch(() => null)
+          throw new Error(result?.error || 'Failed to save profile')
+        }
+
+        setSaved(true)
+      } catch (error) {
+        console.error(error)
+        setSaved(false)
+      }
+    }, 500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [profile])
+
+  const update = (fields: Partial<Profile>, options?: { keepTheme?: boolean }) => {
+    setProfile(prev => {
+      if (!prev) return prev
+
+      const shouldKeepTheme =
+        options?.keepTheme || Object.prototype.hasOwnProperty.call(fields, 'active_theme')
+
+      return {
+        ...prev,
+        ...(shouldKeepTheme ? {} : { active_theme: 'custom' }),
+        ...fields,
+      }
+    })
     setSaved(false)
+  }
+
+  const updateWallpaperEffect = (filter: BackgroundFilter, animated = wallpaperState.animate) => {
+    update({ background_effect: stringifyBackgroundEffect(filter, animated) })
+  }
+
+  const applyGradient = (gradient: {
+    direction: string
+    fromColor: string
+    toColor: string
+    gradStyle: 'custom' | 'pre-made'
+    preset?: number
+  }) => {
+    update({
+      background_type: 'gradient',
+      background_value: buildGradientValue(gradient.direction, gradient.fromColor, gradient.toColor),
+      background_effect: stringifyBackgroundEffect('none', wallpaperState.animate),
+    })
+
+    setWallpaperState(prev => ({
+      ...prev,
+      style: 'gradient',
+      gradStyle: gradient.gradStyle,
+      preset: gradient.preset ?? prev.preset,
+      direction: gradient.direction,
+      fromColor: gradient.fromColor,
+      toColor: gradient.toColor,
+    }))
+  }
+
+  const applyWallpaperStyle = (style: string) => {
+    if (!profile) return
+
+    if (style === 'fill') {
+      update({
+        background_type: 'color',
+        background_value:
+          profile.background_type === 'color' || profile.background_type === 'fill'
+            ? profile.background_value
+            : '#7e22ce',
+        background_effect: stringifyBackgroundEffect('none', false),
+      })
+      return
+    }
+
+    if (style === 'gradient') {
+      const gradientValue =
+        wallpaperState.gradStyle === 'pre-made'
+          ? GRADIENT_PRESET_VALUES[wallpaperState.preset]
+          : buildGradientValue(wallpaperState.direction, wallpaperState.fromColor, wallpaperState.toColor)
+
+      update({
+        background_type: 'gradient',
+        background_value: gradientValue,
+        background_effect: stringifyBackgroundEffect('none', wallpaperState.animate),
+      })
+      return
+    }
+
+    if (style === 'blur') {
+      update({
+        background_type: 'blur',
+        background_value: 'aurora',
+        background_effect: stringifyBackgroundEffect('none', wallpaperState.animate),
+      })
+      return
+    }
+
+    if (style === 'pattern') {
+      update({
+        background_type: 'pattern',
+        background_value: 'grid',
+        background_effect: stringifyBackgroundEffect('none', wallpaperState.animate),
+      })
+      return
+    }
+
+    if (style === 'image') {
+      if (profile.background_type === 'image' && profile.background_value) return
+      backgroundImageInputRef.current?.click()
+      return
+    }
+
+    if (style === 'video') {
+      if (profile.background_type === 'video' && profile.background_value) return
+      backgroundVideoInputRef.current?.click()
+    }
   }
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setLogoUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch('/api/upload', { method: 'POST', body: formData })
-    if (res.ok) {
-      const { url } = await res.json()
-      update({ logo_url: url })
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const { url } = await res.json()
+        update({ logo_url: url })
+      }
+    } finally {
+      setLogoUploading(false)
+      e.target.value = ''
     }
-    setLogoUploading(false)
-    e.target.value = ''
   }
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     setAvatarUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch('/api/upload', { method: 'POST', body: formData })
-    if (res.ok) {
-      const { url } = await res.json()
-      update({ avatar_url: url })
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const { url } = await res.json()
+        update({ avatar_url: url })
+      }
+    } finally {
+      setAvatarUploading(false)
+      e.target.value = ''
     }
-    setAvatarUploading(false)
-    e.target.value = ''
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBackgroundUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    kind: 'image' | 'video'
+  ) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setUploading(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch('/api/upload', { method: 'POST', body: formData })
-    if (res.ok) {
-      const { url } = await res.json()
-      update({ background_value: url, background_type: 'image' })
+    setUploadingKind(kind)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', { method: 'POST', body: formData })
+      if (res.ok) {
+        const { url } = await res.json()
+        update({ background_value: url, background_type: kind })
+      }
+    } finally {
+      setUploadingKind(null)
+      e.target.value = ''
     }
-    setUploading(false)
-    e.target.value = ''
   }
 
 
@@ -541,14 +776,21 @@ export default function AppearanceManager() {
                   {THEMES.map(theme => (
                      <div key={theme.id} className="flex flex-col items-center gap-1.5">
                         <button 
-                          onClick={() => {
-                            if (theme.type !== 'custom' && theme.payload) {
-                              update({ active_theme: theme.id, ...theme.payload })
-                            } else {
-                              update({ active_theme: 'custom' })
-                              setActiveSection('Colors') // rough shortcut
-                            }
-                          }}
+	                          onClick={() => {
+	                            if (theme.type !== 'custom' && theme.payload) {
+	                              update(
+	                                {
+	                                  active_theme: theme.id,
+	                                  background_effect: 'none',
+	                                  ...theme.payload,
+	                                },
+	                                { keepTheme: true }
+	                              )
+	                            } else {
+	                              update({ active_theme: 'custom' }, { keepTheme: true })
+	                              setActiveSection('Colors') // rough shortcut
+	                            }
+	                          }}
                           className={`w-full aspect-[2/3] rounded-[16px] relative overflow-hidden transition-all flex flex-col justify-between p-3 
                             ${theme.type === 'custom' ? 'bg-[#f3f3f1] border border-gray-200 items-center hover:bg-[#eaeaea]' : theme.bg}
                             ${profile?.active_theme === theme.id ? 'ring-[3px] ring-black ring-offset-2' : 'hover:scale-[1.02] active:scale-[0.98]'}
@@ -577,26 +819,448 @@ export default function AppearanceManager() {
               </div>
             )}
 
-            {/* --- Wallpaper Section --- */}
-            {activeSection === 'Wallpaper' && (
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900 mb-6 tracking-wide">Image or Video</h3>
-                  <div className="bg-white border rounded-[24px] p-6 shadow-sm border-gray-200">
-                     <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="w-full py-4 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center gap-3 hover:bg-gray-50 transition-colors"
-                      >
-                        {uploading ? (
-                           <Loader2 size={24} className="animate-spin text-gray-400" />
-                        ) : (
-                           <Upload size={24} className="text-gray-400" />
-                        )}
-                        <span className="text-[15px] font-semibold text-gray-700">Upload background media</span>
+	            {/* --- Wallpaper Section --- */}
+	            {activeSection === 'Wallpaper' && (
+	              <div className="space-y-10">
+	                <input
+	                  ref={backgroundImageInputRef}
+	                  type="file"
+	                  accept="image/jpeg,image/png,image/gif,image/webp"
+	                  className="hidden"
+	                  onChange={e => handleBackgroundUpload(e, 'image')}
+	                />
+	                <input
+	                  ref={backgroundVideoInputRef}
+	                  type="file"
+	                  accept="video/mp4,video/webm,video/quicktime"
+	                  className="hidden"
+	                  onChange={e => handleBackgroundUpload(e, 'video')}
+	                />
+
+	                {/* Wallpaper style */}
+	                <div>
+	                  <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529] mb-4">Wallpaper style</h3>
+	                  <div className="grid grid-cols-4 gap-4">
+	                     {WALLPAPER_OPTIONS.map(opt => (
+	                       <div key={opt.id} className="flex flex-col items-center gap-2">
+	                          <button 
+	                            onClick={() => applyWallpaperStyle(opt.id)}
+	                            className={`w-full aspect-square rounded-[20px] p-[3px] transition-all ${wallpaperState.style === opt.id ? 'border-[2px] border-black scale-[0.98]' : 'border-[2px] border-transparent hover:scale-[1.02]'}`}
+	                          >
+	                             <div className={`w-full h-full rounded-[14px] relative overflow-hidden flex flex-col items-center justify-center ${opt.bg}`}>
+                                {opt.pro && (
+                                  <div className="absolute top-2 right-2 w-[20px] h-[20px] bg-black/60 rounded-full flex items-center justify-center text-white backdrop-blur z-10">
+                                    <Zap size={12} fill="currentColor" />
+                                  </div>
+                                )}
+                                {opt.icon && <opt.icon size={28} strokeWidth={1.5} className="text-[#676b5f]" />}
+                             </div>
+                          </button>
+                          <span className="text-[12px] font-medium text-[#212529]">{opt.label}</span>
+                       </div>
+                     ))}
+	                  </div>
+	                </div>
+
+	                {wallpaperState.style === 'fill' && (
+	                  <div className="space-y-4">
+	                    <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529]">Background color</h3>
+	                    <div className="bg-[#f6f6f5] rounded-[20px] p-5 flex items-center justify-between">
+	                      <div>
+	                        <p className="text-[14px] font-medium text-[#212529]">Fill color</p>
+	                        <p className="text-[13px] text-[#676b5f]">{profile.background_value}</p>
+	                      </div>
+	                      <div className="relative h-12 w-12 overflow-hidden rounded-full border border-black/10">
+	                        <input
+	                          type="color"
+	                          value={profile.background_value?.startsWith('#') ? profile.background_value : '#7e22ce'}
+	                          onChange={e =>
+	                            update({
+	                              background_type: 'color',
+	                              background_value: e.target.value,
+	                              background_effect: stringifyBackgroundEffect('none', false),
+	                            })
+	                          }
+	                          className="absolute inset-[-10px] h-20 w-20 cursor-pointer"
+	                        />
+	                      </div>
+	                    </div>
+	                  </div>
+	                )}
+
+	                {wallpaperState.style === 'gradient' && (
+	                  <div className="space-y-10">
+	                    <div className="space-y-6">
+	                      <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529] mb-4">Gradient style</h3>
+	                      <div className="flex gap-4">
+	                         <button 
+	                           onClick={() =>
+	                             applyGradient({
+	                               direction: wallpaperState.direction,
+	                               fromColor: wallpaperState.fromColor,
+	                               toColor: wallpaperState.toColor,
+	                               gradStyle: 'custom',
+	                             })
+	                           }
+	                           className={`flex-1 py-[18px] rounded-[16px] text-center text-[14px] font-[500] transition-colors ${wallpaperState.gradStyle === 'custom' ? 'border-[2px] border-black bg-[#f6f6f5]' : 'bg-[#f6f6f5] hover:bg-[#eaeaea] border-[2px] border-transparent text-[#212529]'}`}
+	                         >
+	                           Custom
+	                         </button>
+	                         <button 
+	                           onClick={() =>
+	                             applyGradient({
+	                               direction: parseGradientValue(GRADIENT_PRESET_VALUES[wallpaperState.preset]).direction,
+	                               fromColor: parseGradientValue(GRADIENT_PRESET_VALUES[wallpaperState.preset]).from,
+	                               toColor: parseGradientValue(GRADIENT_PRESET_VALUES[wallpaperState.preset]).to,
+	                               gradStyle: 'pre-made',
+	                               preset: wallpaperState.preset,
+	                             })
+	                           }
+	                           className={`flex-1 py-[18px] rounded-[16px] flex items-center justify-center gap-2 text-[14px] font-[500] transition-colors ${wallpaperState.gradStyle === 'pre-made' ? 'border-[2px] border-black bg-[#f6f6f5]' : 'bg-[#f6f6f5] hover:bg-[#eaeaea] border-[2px] border-transparent text-[#212529]'}`}
+	                         >
+                           Pre-made
+                           <div className="w-[18px] h-[18px] bg-black/60 rounded-full flex items-center justify-center text-white backdrop-blur">
+                             <Zap size={10} fill="currentColor" />
+                           </div>
+                         </button>
+                      </div>
+                    </div>
+
+	                    {wallpaperState.gradStyle === 'pre-made' && (
+	                      <div className="space-y-4">
+	                        <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529] mb-4">Gradient</h3>
+	                        <div className="flex flex-wrap gap-2">
+	                          {GRADIENT_PRESET_VALUES.map((gradientValue, i) => (
+	                             <button
+	                               key={i}
+	                               onClick={() => {
+	                                 const gradient = parseGradientValue(gradientValue)
+	                                 applyGradient({
+	                                   direction: gradient.direction,
+	                                   fromColor: gradient.from,
+	                                   toColor: gradient.to,
+	                                   gradStyle: 'pre-made',
+	                                   preset: i,
+	                                 })
+	                               }}
+	                               className={`p-[3px] rounded-full transition-all ${wallpaperState.preset === i ? 'border-[2px] border-black scale-[0.98]' : 'border-[2px] border-transparent hover:scale-105'}`}
+	                             >
+	                                <div className="w-[48px] h-[48px] rounded-full" style={{ background: gradientValue }} />
+	                             </button>
+	                          ))}
+	                        </div>
+	                      </div>
+	                    )}
+
+	                    {wallpaperState.gradStyle === 'custom' && (
+	                      <div className="space-y-6">
+	                        <div className="grid grid-cols-2 gap-4">
+	                          <div className="bg-[#f6f6f5] rounded-[20px] p-5 space-y-3">
+	                            <div className="flex items-center justify-between">
+	                              <span className="text-[14px] font-medium text-[#212529]">Start color</span>
+	                              <span className="text-[13px] text-[#676b5f]">{wallpaperState.fromColor}</span>
+	                            </div>
+	                            <div className="relative h-12 w-full overflow-hidden rounded-2xl border border-black/10">
+	                              <input
+	                                type="color"
+	                                value={wallpaperState.fromColor}
+	                                onChange={e =>
+	                                  applyGradient({
+	                                    direction: wallpaperState.direction,
+	                                    fromColor: e.target.value,
+	                                    toColor: wallpaperState.toColor,
+	                                    gradStyle: 'custom',
+	                                  })
+	                                }
+	                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+	                              />
+	                              <div className="h-full w-full" style={{ backgroundColor: wallpaperState.fromColor }} />
+	                            </div>
+	                          </div>
+	                          <div className="bg-[#f6f6f5] rounded-[20px] p-5 space-y-3">
+	                            <div className="flex items-center justify-between">
+	                              <span className="text-[14px] font-medium text-[#212529]">End color</span>
+	                              <span className="text-[13px] text-[#676b5f]">{wallpaperState.toColor}</span>
+	                            </div>
+	                            <div className="relative h-12 w-full overflow-hidden rounded-2xl border border-black/10">
+	                              <input
+	                                type="color"
+	                                value={wallpaperState.toColor}
+	                                onChange={e =>
+	                                  applyGradient({
+	                                    direction: wallpaperState.direction,
+	                                    fromColor: wallpaperState.fromColor,
+	                                    toColor: e.target.value,
+	                                    gradStyle: 'custom',
+	                                  })
+	                                }
+	                                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+	                              />
+	                              <div className="h-full w-full" style={{ backgroundColor: wallpaperState.toColor }} />
+	                            </div>
+	                          </div>
+	                        </div>
+	                        <div className="space-y-3">
+	                          <h4 className="text-[14px] font-[500] text-[#212529]">Gradient direction</h4>
+	                          <div className="grid grid-cols-2 gap-3">
+	                            {GRADIENT_DIRECTIONS.map(direction => (
+	                              <button
+	                                key={direction.value}
+	                                onClick={() =>
+	                                  applyGradient({
+	                                    direction: direction.value,
+	                                    fromColor: wallpaperState.fromColor,
+	                                    toColor: wallpaperState.toColor,
+	                                    gradStyle: 'custom',
+	                                  })
+	                                }
+	                                className={`rounded-[16px] border-[2px] px-4 py-4 text-[14px] font-medium transition-colors ${
+	                                  wallpaperState.direction === direction.value
+	                                    ? 'border-black bg-[#f6f6f5] text-[#212529]'
+	                                    : 'border-transparent bg-[#f6f6f5] text-[#676b5f] hover:bg-[#ecece8]'
+	                                }`}
+	                              >
+	                                {direction.label}
+	                              </button>
+	                            ))}
+	                          </div>
+	                        </div>
+	                      </div>
+	                    )}
+	                  </div>
+	                )}
+
+	                {(wallpaperState.style === 'image' || wallpaperState.style === 'video') && (
+	                  <div className="space-y-8">
+	                    <div>
+	                      <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529] mb-4">
+	                        Background {wallpaperState.style}
+	                      </h3>
+	                      <div className="bg-[#f6f6f5] rounded-[24px] p-5 flex items-center justify-between gap-4">
+	                        <div className="flex items-center gap-4 min-w-0">
+	                          <div className="h-16 w-16 overflow-hidden rounded-full bg-white border border-black/10 shrink-0 flex items-center justify-center">
+	                            {wallpaperState.style === 'image' && profile.background_value ? (
+	                              // eslint-disable-next-line @next/next/no-img-element
+	                              <img src={profile.background_value} alt="Background preview" className="h-full w-full object-cover" />
+	                            ) : wallpaperState.style === 'video' && profile.background_value ? (
+	                              <PlaySquare size={24} className="text-[#676b5f]" />
+	                            ) : (
+	                              <Upload size={20} className="text-[#676b5f]" />
+	                            )}
+	                          </div>
+	                          <div className="min-w-0">
+	                            <p className="text-[14px] font-medium text-[#212529]">
+	                              {profile.background_value ? 'Media uploaded' : `Upload a ${wallpaperState.style}`}
+	                            </p>
+	                            <p className="truncate text-[13px] text-[#676b5f]">
+	                              {profile.background_value || 'Supported: JPG, PNG, GIF, WEBP, MP4, WEBM, MOV'}
+	                            </p>
+	                          </div>
+	                        </div>
+	                        <button
+	                          type="button"
+	                          onClick={() =>
+	                            wallpaperState.style === 'image'
+	                              ? backgroundImageInputRef.current?.click()
+	                              : backgroundVideoInputRef.current?.click()
+	                          }
+	                          disabled={uploadingKind === wallpaperState.style}
+	                          className="shrink-0 rounded-full border border-black/10 bg-white px-5 py-2.5 text-[14px] font-semibold text-[#212529] transition-colors hover:bg-[#f1f1ee] disabled:opacity-60"
+	                        >
+	                          {uploadingKind === wallpaperState.style ? 'Uploading...' : 'Edit'}
+	                        </button>
+	                      </div>
+	                    </div>
+
+	                    <div className="space-y-4">
+	                      <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529]">Effect</h3>
+	                      <div className="grid grid-cols-4 gap-3">
+	                        {EFFECT_OPTIONS.map(option => (
+	                          <button
+	                            key={option.value}
+	                            onClick={() => updateWallpaperEffect(option.value)}
+	                            className={`rounded-[18px] border-[2px] px-3 py-4 text-center text-[13px] font-medium transition-colors ${
+	                              wallpaperState.effect === option.value
+	                                ? 'border-black bg-white text-[#212529]'
+	                                : 'border-transparent bg-[#f6f6f5] text-[#676b5f] hover:bg-[#ecece8]'
+	                            }`}
+	                          >
+	                            {option.label}
+	                          </button>
+	                        ))}
+	                      </div>
+	                    </div>
+	                  </div>
+	                )}
+
+	                <div className="space-y-4">
+	                  <div className="flex items-center justify-between">
+	                    <div className="flex flex-col">
+	                      <span className="text-[15px] font-[500] text-[#212529]">Tint</span>
+	                      <span className="text-[13px] text-[#676b5f]">
+	                        Improves text visibility and helps make your content more accessible
+	                      </span>
+	                    </div>
+	                    <span className="text-[13px] font-medium text-[#676b5f]">{profile.background_tint}%</span>
+	                  </div>
+	                  <input
+	                    type="range"
+	                    min="0"
+	                    max="80"
+	                    step="1"
+	                    value={profile.background_tint ?? 0}
+	                    onChange={e => update({ background_tint: Number(e.target.value) })}
+	                    className="h-2 w-full cursor-pointer appearance-none rounded-full bg-[#d9d9d4]"
+	                  />
+	                </div>
+
+	                {/* Toggles */}
+	                <div className="space-y-8 pt-6">
+	                   <div className="flex items-center justify-between">
+                     <div className="flex items-center gap-2">
+                       <span className="text-[14px] font-[500] text-[#212529]">Animate</span>
+                       <div className="w-[18px] h-[18px] bg-black/50 rounded-full flex items-center justify-center text-white backdrop-blur">
+                         <Zap size={10} fill="currentColor" />
+                       </div>
+	                     </div>
+	                     <button
+	                        onClick={() => updateWallpaperEffect(wallpaperState.effect, !wallpaperState.animate)}
+	                        className={`w-[44px] h-[24px] rounded-[12px] relative transition-colors duration-200 flex items-center border-[2px] ${wallpaperState.animate ? 'bg-[#187741] border-[#187741]' : 'border-[#b0b2aa] bg-transparent'}`}
+	                      >
+	                        <div className={`w-[20px] h-[20px] rounded-[10px] absolute transition-all duration-200 transform ${wallpaperState.animate ? 'translate-x-[20px] bg-white' : 'translate-x-0 bg-[#b0b2aa]'}`} />
                       </button>
-                      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
+                   </div>
+
+                   <div className="flex items-center justify-between pt-4">
+                     <div className="flex flex-col">
+                       <span className="text-[15px] font-[500] text-[#212529]">Noise</span>
+                       <span className="text-[13px] text-[#676b5f]">Add a subtle grain texture</span>
+	                     </div>
+	                     <button
+	                        onClick={() => update({ noise_enabled: !profile.noise_enabled })}
+	                        className={`w-[44px] h-[24px] rounded-[12px] relative transition-colors duration-200 flex items-center border-[2px] ${profile.noise_enabled ? 'bg-[#187741] border-[#187741]' : 'border-[#b0b2aa] bg-transparent'}`}
+	                      >
+	                        <div className={`w-[20px] h-[20px] rounded-[10px] absolute transition-all duration-200 transform ${profile.noise_enabled ? 'translate-x-[20px] bg-white' : 'translate-x-[0px] bg-[#b0b2aa]'}`} />
+	                      </button>
+	                   </div>
+	                </div>
+              </div>
+            )}
+
+            {/* --- Text Section --- */}
+            {activeSection === 'Text' && (
+              <div className="space-y-8">
+                {/* Page Font */}
+                <div className="space-y-4">
+                  <h3 className="text-[14px] font-[500] text-[#212529]">Page font</h3>
+                  <div className="relative">
+                    <select
+                      value={profile.page_font || 'Inter'}
+                      onChange={e => update({ page_font: e.target.value })}
+                      className="w-full appearance-none rounded-[12px] border border-[#e0e0e0] bg-white px-4 py-3.5 text-[15px] text-[#212529] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
+                    >
+                      {GOOGLE_FONTS.map(font => (
+                        <option key={font} value={font}>
+                          {font}
+                        </option>
+                      ))}
+                    </select>
+                    <ArrowDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#676b5f] pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Page Text Color */}
+                <div className="space-y-4">
+                  <h3 className="text-[14px] font-[500] text-[#212529]">Page text color</h3>
+                  <div className="flex w-full items-center justify-between rounded-[12px] border border-[#e0e0e0] bg-white px-4 py-3.5 transition-colors hover:border-[#b0b2aa]">
+                    <span className="text-[15px] text-[#212529]">{profile.page_text_color?.toUpperCase() || '#000000'}</span>
+                    <div className="relative h-6 w-6 overflow-hidden rounded-full border border-black/20 shrink-0">
+                      <input
+                        type="color"
+                        value={profile.page_text_color || '#000000'}
+                        onChange={e => update({ page_text_color: e.target.value })}
+                        className="absolute inset-[-10px] h-10 w-10 cursor-pointer opacity-0"
+                      />
+                      <div className="h-full w-full" style={{ backgroundColor: profile.page_text_color || '#000000' }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Alternative Title Font Toggle */}
+                <div className="flex items-center justify-between pt-4 pb-2 border-t border-transparent">
+                   <div className="flex flex-col">
+                     <span className="text-[15px] font-[500] text-[#212529]">Alternative title font</span>
+                     <span className="text-[13px] text-[#676b5f]">Matches page font by default</span>
+                   </div>
+                   <div className="flex items-center gap-3">
+                     <div className="w-[18px] h-[18px] bg-[#676b5f] rounded-full flex items-center justify-center text-white">
+                       <Zap size={10} fill="currentColor" />
+                     </div>
+                     <button
+                        onClick={() => update({ use_alt_title_font: !profile.use_alt_title_font })}
+                        className={`w-[44px] h-[24px] rounded-[12px] relative transition-colors duration-200 flex items-center border-[2px] ${profile.use_alt_title_font ? 'bg-[#187741] border-[#187741]' : 'border-[#b0b2aa] bg-transparent'}`}
+                      >
+                        <div className={`w-[20px] h-[20px] rounded-[10px] absolute transition-all duration-200 transform ${profile.use_alt_title_font ? 'translate-x-[20px] bg-white' : 'translate-x-[0px] bg-[#b0b2aa]'}`} />
+                      </button>
+                   </div>
+                </div>
+
+                {/* Alternative Title Font Select (only if enabled) */}
+                {profile.use_alt_title_font && (
+                   <div className="space-y-4">
+                     <div className="relative">
+                       <select
+                         value={profile.title_font || 'Inter'}
+                         onChange={e => update({ title_font: e.target.value })}
+                         className="w-full appearance-none rounded-[12px] border border-[#e0e0e0] bg-white px-4 py-3.5 text-[15px] text-[#212529] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
+                       >
+                         {TITLE_FONTS.map(font => (
+                           <option key={font} value={font}>
+                             {font}
+                           </option>
+                         ))}
+                       </select>
+                       <ArrowDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#676b5f] pointer-events-none" />
+                     </div>
+                   </div>
+                )}
+
+                {/* Title Color */}
+                <div className="space-y-4">
+                  <h3 className="text-[14px] font-[500] text-[#212529]">Title color</h3>
+                  <div className="flex w-full items-center justify-between rounded-[12px] border border-[#e0e0e0] bg-white px-4 py-3.5 transition-colors hover:border-[#b0b2aa]">
+                    <span className="text-[15px] text-[#212529]">{profile.title_color?.toUpperCase() || '#000000'}</span>
+                    <div className="relative h-6 w-6 overflow-hidden rounded-full border border-black/20 shrink-0">
+                      <input
+                        type="color"
+                        value={profile.title_color || '#000000'}
+                        onChange={e => update({ title_color: e.target.value })}
+                        className="absolute inset-[-10px] h-10 w-10 cursor-pointer opacity-0"
+                      />
+                      <div className="h-full w-full" style={{ backgroundColor: profile.title_color || '#000000' }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Title Size */}
+                <div className="space-y-4">
+                  <h3 className="text-[14px] font-[500] text-[#212529]">Title size</h3>
+                  <div className="flex gap-2">
+                     <button
+                        onClick={() => update({ title_size: 'small' })}
+                        className={`flex-1 py-[18px] rounded-[16px] text-center text-[15px] font-[500] transition-colors ${profile.title_size !== 'large' ? 'border-[2px] border-black bg-[#f6f6f5] text-[#212529]' : 'border-[2px] border-transparent bg-[#f6f6f5] text-[#212529] hover:bg-[#eaeaea]'}`}
+                     >
+                       Small
+                     </button>
+                     <button
+                        onClick={() => update({ title_size: 'large' })}
+                        className={`flex-1 py-[18px] rounded-[16px] flex items-center justify-center gap-2 text-[15px] font-[500] transition-colors ${profile.title_size === 'large' ? 'border-[2px] border-black bg-[#f6f6f5] text-[#212529]' : 'border-[2px] border-transparent bg-[#f6f6f5] text-[#212529] hover:bg-[#eaeaea]'}`}
+                     >
+                       Large
+                       <div className="w-[18px] h-[18px] bg-[#676b5f] rounded-full flex items-center justify-center text-white">
+                         <Zap size={10} fill="currentColor" />
+                       </div>
+                     </button>
                   </div>
                 </div>
               </div>
