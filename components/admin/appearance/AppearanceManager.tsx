@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush, PlaySquare } from 'lucide-react'
+import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, ChevronDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush, PlaySquare, X } from 'lucide-react'
 import MobilePreview from './MobilePreview'
 import {
   GRADIENT_PRESET_VALUES,
@@ -128,6 +128,7 @@ export default function AppearanceManager() {
   const [uploadingKind, setUploadingKind] = useState<'image' | 'video' | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [activeSection, setActiveSection] = useState<Section>('Header')
+  const [fontModalType, setFontModalType] = useState<'page' | 'title' | null>(null)
   const backgroundImageInputRef = useRef<HTMLInputElement>(null)
   const backgroundVideoInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -453,8 +454,8 @@ export default function AppearanceManager() {
       </div>
 
       {/* 2. Scrollable Editor Column */}
-      <div className="flex-1 overflow-y-auto border-r border-[#e0e0e0] bg-white relative">
-        <div className="max-w-[536px] w-full mx-auto px-8 pt-0 pb-32">
+      <div className="flex-1 overflow-y-auto border-r border-[#e0e0e0] bg-[#FAFAFA] relative">
+        <div className="max-w-[536px] w-full mx-auto px-8 py-10">
 
           <div className="space-y-10 mt-6">
             {activeSection === 'Header' && (
@@ -1151,114 +1152,100 @@ export default function AppearanceManager() {
             {activeSection === 'Text' && (
               <div className="space-y-8">
                 {/* Page Font */}
-                <div className="space-y-4">
-                  <h3 className="text-[14px] font-[500] text-[#212529]">Page font</h3>
-                  <div className="relative">
-                    <select
-                      value={profile.page_font || 'Inter'}
-                      onChange={e => update({ page_font: e.target.value })}
-                      className="w-full appearance-none rounded-[12px] border border-[#e0e0e0] bg-white px-4 py-3.5 text-[15px] text-[#212529] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
-                    >
-                      {GOOGLE_FONTS.map(font => (
-                        <option key={font} value={font}>
-                          {font}
-                        </option>
-                      ))}
-                    </select>
-                    <ArrowDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#676b5f] pointer-events-none" />
-                  </div>
+                <div className="space-y-3">
+                  <h3 className="text-[14px] font-[600] text-[#111827]">Page font</h3>
+                  <button
+                    onClick={() => setFontModalType('page')}
+                    className="w-[454px] flex items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] text-[15px] text-[#111827] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
+                  >
+                    <span>{profile.page_font || 'Poppins'}</span>
+                    <ChevronDown size={20} strokeWidth={1.5} className="text-[#111827] pointer-events-none" />
+                  </button>
                 </div>
 
                 {/* Page Text Color */}
-                <div className="space-y-4">
-                  <h3 className="text-[14px] font-[500] text-[#212529]">Page text color</h3>
-                  <div className="flex w-full items-center justify-between rounded-[12px] border border-[#e0e0e0] bg-white px-4 py-3.5 transition-colors hover:border-[#b0b2aa]">
-                    <span className="text-[15px] text-[#212529]">{profile.page_text_color?.toUpperCase() || '#000000'}</span>
-                    <div className="relative h-6 w-6 overflow-hidden rounded-full border border-black/20 shrink-0">
+                <div className="space-y-3">
+                  <h3 className="text-[14px] font-[600] text-[#111827]">Page text color</h3>
+                  <div className="flex w-[454px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] transition-colors hover:border-[#b0b2aa]">
+                    <span className="text-[15px] text-[#111827]">{profile.page_text_color?.toUpperCase() || '#0F071B'}</span>
+                    <div className="relative h-[22px] w-[22px] overflow-hidden rounded-full shrink-0">
                       <input
                         type="color"
-                        value={profile.page_text_color || '#000000'}
+                        value={profile.page_text_color || '#0F071B'}
                         onChange={e => update({ page_text_color: e.target.value })}
                         className="absolute inset-[-10px] h-10 w-10 cursor-pointer opacity-0"
                       />
-                      <div className="h-full w-full" style={{ backgroundColor: profile.page_text_color || '#000000' }} />
+                      <div className="h-full w-full" style={{ backgroundColor: profile.page_text_color || '#0F071B' }} />
                     </div>
                   </div>
                 </div>
 
                 {/* Alternative Title Font Toggle */}
-                <div className="flex items-center justify-between pt-4 pb-2 border-t border-transparent">
-                   <div className="flex flex-col">
-                     <span className="text-[15px] font-[500] text-[#212529]">Alternative title font</span>
-                     <span className="text-[13px] text-[#676b5f]">Matches page font by default</span>
+                <div className="flex items-center justify-between pt-2">
+                   <div className="flex flex-col gap-0.5">
+                     <span className="text-[14px] font-[600] text-[#111827]">Alternative title font</span>
+                     <span className="text-[13px] font-[400] text-[#676b5f]">Matches page font by default</span>
                    </div>
                    <div className="flex items-center gap-3">
-                     <div className="w-[18px] h-[18px] bg-[#676b5f] rounded-full flex items-center justify-center text-white">
-                       <Zap size={10} fill="currentColor" />
+                     <div className="w-[20px] h-[20px] bg-[#82847a] rounded-full flex items-center justify-center text-white">
+                       <Zap size={10} fill="currentColor" strokeWidth={0} />
                      </div>
                      <button
                         onClick={() => update({ use_alt_title_font: !profile.use_alt_title_font })}
-                        className={`w-[44px] h-[24px] rounded-[12px] relative transition-colors duration-200 flex items-center border-[2px] ${profile.use_alt_title_font ? 'bg-[#187741] border-[#187741]' : 'border-[#b0b2aa] bg-transparent'}`}
+                        className={`w-[44px] h-[24px] rounded-[12px] relative transition-colors duration-200 flex items-center border-[2px] ${profile.use_alt_title_font ? 'bg-[#187741] border-[#187741]' : 'border-[#82847a] bg-[#82847a]'}`}
                       >
-                        <div className={`w-[20px] h-[20px] rounded-[10px] absolute transition-all duration-200 transform ${profile.use_alt_title_font ? 'translate-x-[20px] bg-white' : 'translate-x-[0px] bg-[#b0b2aa]'}`} />
+                        <div className={`w-[20px] h-[20px] rounded-[10px] absolute transition-all duration-200 transform ${profile.use_alt_title_font ? 'translate-x-[20px] bg-white' : 'translate-x-[0px] bg-white'}`} style={{ top: 0, left: 0 }} />
                       </button>
                    </div>
                 </div>
 
                 {/* Alternative Title Font Select (only if enabled) */}
                 {profile.use_alt_title_font && (
-                   <div className="space-y-4">
-                     <div className="relative">
-                       <select
-                         value={profile.title_font || 'Inter'}
-                         onChange={e => update({ title_font: e.target.value })}
-                         className="w-full appearance-none rounded-[12px] border border-[#e0e0e0] bg-white px-4 py-3.5 text-[15px] text-[#212529] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
-                       >
-                         {TITLE_FONTS.map(font => (
-                           <option key={font} value={font}>
-                             {font}
-                           </option>
-                         ))}
-                       </select>
-                       <ArrowDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#676b5f] pointer-events-none" />
-                     </div>
+                   <div className="space-y-3 pt-2">
+                     <button
+                       onClick={() => setFontModalType('title')}
+                       className="w-[454px] flex items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] text-[15px] text-[#111827] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
+                     >
+                       <span>{profile.title_font || 'Poppins'}</span>
+                       <ChevronDown size={20} className="text-[#111827] pointer-events-none" />
+                     </button>
                    </div>
                 )}
 
                 {/* Title Color */}
-                <div className="space-y-4">
-                  <h3 className="text-[14px] font-[500] text-[#212529]">Title color</h3>
-                  <div className="flex w-full items-center justify-between rounded-[12px] border border-[#e0e0e0] bg-white px-4 py-3.5 transition-colors hover:border-[#b0b2aa]">
-                    <span className="text-[15px] text-[#212529]">{profile.title_color?.toUpperCase() || '#000000'}</span>
-                    <div className="relative h-6 w-6 overflow-hidden rounded-full border border-black/20 shrink-0">
+                <div className="space-y-3">
+                  <h3 className="text-[14px] font-[600] text-[#111827]">Title color</h3>
+                  <div className="flex w-[454px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] transition-colors hover:border-[#b0b2aa]">
+                    <span className="text-[15px] text-[#111827]">{profile.title_color?.toUpperCase() || '#0F071B'}</span>
+                    <div className="relative h-[22px] w-[22px] overflow-hidden rounded-full shrink-0">
                       <input
                         type="color"
-                        value={profile.title_color || '#000000'}
+                        value={profile.title_color || '#0F071B'}
                         onChange={e => update({ title_color: e.target.value })}
                         className="absolute inset-[-10px] h-10 w-10 cursor-pointer opacity-0"
                       />
-                      <div className="h-full w-full" style={{ backgroundColor: profile.title_color || '#000000' }} />
+                      <div className="h-full w-full" style={{ backgroundColor: profile.title_color || '#0F071B' }} />
                     </div>
                   </div>
                 </div>
 
                 {/* Title Size */}
-                <div className="space-y-4">
-                  <h3 className="text-[14px] font-[500] text-[#212529]">Title size</h3>
+                <div className="space-y-3">
+                  <h3 className="text-[14px] font-[600] text-[#111827]">Title size</h3>
                   <div className="flex gap-2">
                      <button
                         onClick={() => update({ title_size: 'small' })}
-                        className={`flex-1 py-[18px] rounded-[16px] text-center text-[15px] font-[500] transition-colors ${profile.title_size !== 'large' ? 'border-[2px] border-black bg-[#f6f6f5] text-[#212529]' : 'border-[2px] border-transparent bg-[#f6f6f5] text-[#212529] hover:bg-[#eaeaea]'}`}
+                        className={`flex-1 py-[16px] rounded-[16px] text-center text-[15px] font-[500] transition-colors ${profile.title_size !== 'large' ? 'border-[1.5px] border-[#111827] bg-[#f6f6f5] text-[#111827]' : 'border-[1.5px] border-transparent bg-[#f6f6f5] text-[#111827] hover:bg-[#eaeaea]'}`}
                      >
                        Small
                      </button>
                      <button
                         onClick={() => update({ title_size: 'large' })}
-                        className={`flex-1 py-[18px] rounded-[16px] flex items-center justify-center gap-2 text-[15px] font-[500] transition-colors ${profile.title_size === 'large' ? 'border-[2px] border-black bg-[#f6f6f5] text-[#212529]' : 'border-[2px] border-transparent bg-[#f6f6f5] text-[#212529] hover:bg-[#eaeaea]'}`}
+                        className={`flex-1 py-[16px] rounded-[16px] flex items-center justify-center gap-2 text-[15px] font-[500] transition-colors ${profile.title_size === 'large' ? 'border-[1.5px] border-[#111827] bg-[#f6f6f5] text-[#111827]' : 'border-[1.5px] border-transparent bg-[#f6f6f5] text-[#111827] hover:bg-[#eaeaea]'}`}
                      >
                        Large
-                       <div className="w-[18px] h-[18px] bg-[#676b5f] rounded-full flex items-center justify-center text-white">
-                         <Zap size={10} fill="currentColor" />
+                       <div className="w-[18px] h-[18px] bg-[#82847a] rounded-full flex items-center justify-center text-white">
+                         <Zap size={10} fill="currentColor" strokeWidth={0} />
                        </div>
                      </button>
                   </div>
@@ -1299,6 +1286,46 @@ export default function AppearanceManager() {
              <span className="text-gray-600 font-medium">{saved ? 'All changes saved' : 'Unsaved changes'}</span>
          </div>
       </div>
+      {/* Font Selection Modal */}
+      {fontModalType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-[511px] h-full max-h-[890px] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden relative">
+            <div className="flex items-center justify-center relative py-[24px] shrink-0">
+              <h2 className="text-[16px] font-[600] text-[#111827]">
+                {fontModalType === 'page' ? 'Page font' : 'Title font'}
+              </h2>
+              <button 
+                onClick={() => setFontModalType(null)} 
+                className="absolute right-6 top-1/2 -translate-y-1/2 text-[#111827] hover:bg-gray-100 p-1.5 rounded-full"
+              >
+                <X size={20} strokeWidth={1.5} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 pb-8 custom-scrollbar">
+              <div className="grid grid-cols-2 gap-3 justify-items-center">
+                 {(fontModalType === 'page' ? GOOGLE_FONTS : TITLE_FONTS).map((font, idx) => {
+                   const isActive = profile[fontModalType === 'page' ? 'page_font' : 'title_font'] === font;
+                   const isPro = idx % 3 === 2; // fake pro logic to match aesthetic
+                   return (
+                     <button
+                       key={font}
+                       onClick={() => update({ [fontModalType === 'page' ? 'page_font' : 'title_font']: font })}
+                       className={`w-[232px] h-[52px] rounded-[16px] flex items-center justify-center relative justify-center text-[15px] font-[500] transition-colors ${isActive ? 'bg-[#f6f6f5] border-[1.5px] border-[#111827] text-[#111827]' : 'bg-[#f6f6f5] border-[1.5px] border-transparent text-[#676b5f] hover:bg-[#eaeaea]'}`}
+                     >
+                       {font}
+                       {isPro && (
+                         <div className="absolute right-4 w-[18px] h-[18px] bg-[#82847a] rounded-full flex items-center justify-center text-white">
+                            <Zap size={10} fill="currentColor" strokeWidth={0} />
+                         </div>
+                       )}
+                     </button>
+                   )
+                 })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
