@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2 } from 'lucide-react'
+import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush } from 'lucide-react'
 import MobilePreview from './MobilePreview'
 
 type Profile = {
@@ -26,6 +26,7 @@ type Profile = {
   title_size?: string
   use_alt_title_font?: boolean
   logo_url?: string | null
+  active_theme?: string
 }
 
 const SECTIONS = ['Header', 'Theme', 'Wallpaper', 'Text', 'Buttons', 'Colors', 'Footer'] as const
@@ -45,6 +46,24 @@ const TITLE_FONTS = [
 ]
 
 // Layout constants or helpers can go here
+const THEMES = [
+  { id: 'custom', name: 'Custom', type: 'custom' },
+  { id: 'agate', name: 'Agate', bg: 'bg-gradient-to-br from-emerald-500 via-teal-400 to-sky-500', pro: true, aa: 'text-[#d9f99d] font-serif', btn: 'bg-[#d9f99d] rounded-full', payload: { background_type: 'gradient', background_value: 'linear-gradient(to bottom right, #10b981, #2dd4bf, #0ea5e9)', button_style: 'solid', button_color: '#d9f99d', button_text_color: '#022c22', button_corners: 'full', page_text_color: '#ffffff', title_color: '#d9f99d', page_font: 'Inter', use_alt_title_font: true, title_font: 'Playfair Display' } },
+  { id: 'air', name: 'Air', bg: 'bg-[#f4f4f5]', aa: 'text-black', btn: 'bg-white rounded-full', payload: { background_type: 'color', background_value: '#f4f4f5', button_style: 'solid', button_color: '#ffffff', button_text_color: '#000000', button_corners: 'full', page_text_color: '#52525b', title_color: '#000000', page_font: 'Inter', use_alt_title_font: false } },
+  { id: 'astrid', name: 'Astrid', bg: 'bg-[#1c1917]', pro: true, aa: 'text-white', btn: 'bg-white/10 rounded-full border border-white/20 backdrop-blur-md', payload: { background_type: 'color', background_value: '#1c1917', button_style: 'glass', button_text_color: '#ffffff', button_corners: 'full', page_text_color: '#a8a29e', title_color: '#ffffff', page_font: 'Inter', use_alt_title_font: false } },
+  { id: 'aura', name: 'Aura', bg: 'bg-[#e7e5e4]', pro: true, aa: 'text-black font-serif', btn: 'bg-black/5 rounded-full', payload: { background_type: 'color', background_value: '#e7e5e4', button_style: 'solid', button_color: 'rgba(0,0,0,0.05)', button_text_color: '#000000', button_corners: 'full', page_text_color: '#44403c', title_color: '#000000', page_font: 'Lato', use_alt_title_font: true, title_font: 'Merriweather' } },
+  { id: 'bliss', name: 'Bliss', bg: 'bg-gradient-to-b from-gray-300 to-gray-400', pro: true, aa: 'text-black font-serif', btn: 'bg-white/50 backdrop-blur rounded-full', payload: { background_type: 'gradient', background_value: 'linear-gradient(to bottom, #d1d5db, #9ca3af)', button_style: 'glass', button_text_color: '#000000', button_corners: 'full', page_text_color: '#374151', title_color: '#000000', page_font: 'Inter', use_alt_title_font: true, title_font: 'Merriweather' } },
+  { id: 'blocks', name: 'Blocks', bg: 'bg-[#a855f7]', aa: 'text-white font-mono', btn: 'bg-[#e879f9] rounded-sm border-2 border-black drop-shadow-[2px_2px_0_rgba(0,0,0,1)]', payload: { background_type: 'color', background_value: '#a855f7', button_style: 'solid', button_color: '#e879f9', button_text_color: '#000000', button_corners: 'square', page_text_color: '#ffffff', title_color: '#ffffff', page_font: 'Space Grotesk', use_alt_title_font: true, title_font: 'Bebas Neue' } },
+  { id: 'bloom', name: 'Bloom', bg: 'bg-gradient-to-b from-rose-500 to-indigo-600', pro: true, aa: 'text-white', btn: 'border border-white bg-transparent rounded-full', payload: { background_type: 'gradient', background_value: 'linear-gradient(to bottom, #f43f5e, #4f46e5)', button_style: 'outline', button_text_color: '#ffffff', button_corners: 'full', page_text_color: '#ffffff', title_color: '#ffffff', page_font: 'Inter', use_alt_title_font: false } },
+  { id: 'breeze', name: 'Breeze', bg: 'bg-gradient-to-b from-fuchsia-300 to-pink-300', pro: true, aa: 'text-black font-serif', btn: 'bg-white/50 rounded-full', payload: { background_type: 'gradient', background_value: 'linear-gradient(to bottom, #f0abfc, #f9a8d4)', button_style: 'solid', button_color: 'rgba(255,255,255,0.5)', button_text_color: '#000000', button_corners: 'full', page_text_color: '#831843', title_color: '#4c0519', page_font: 'Inter', use_alt_title_font: true, title_font: 'Merriweather' } },
+  { id: 'encore', name: 'Encore', bg: 'bg-[#0f172a]', pro: true, aa: 'text-rose-400 font-serif', btn: 'border border-gray-600 rounded-full', payload: { background_type: 'color', background_value: '#0f172a', button_style: 'outline', button_text_color: '#818cf8', button_corners: 'full', page_text_color: '#e2e8f0', title_color: '#fb7185', page_font: 'Inter', use_alt_title_font: true, title_font: 'Merriweather' } },
+  { id: 'grid', name: 'Grid', bg: 'bg-[#d9f99d] bg-[linear-gradient(to_right,#bef264_1px,transparent_1px),linear-gradient(to_bottom,#bef264_1px,transparent_1px)] bg-[size:12px_12px]', pro: true, aa: 'text-black font-black italic', btn: 'bg-white rounded-full border-2 border-black drop-shadow-[2px_2px_0_rgba(0,0,0,1)]', payload: { background_type: 'color', background_value: '#d9f99d', button_style: 'solid', button_color: '#ffffff', button_text_color: '#000000', button_corners: 'full', page_text_color: '#3f6212', title_color: '#000000', page_font: 'Syne', use_alt_title_font: true, title_font: 'Syne' } },
+  { id: 'groove', name: 'Groove', bg: 'bg-gradient-to-br from-orange-500 via-rose-500 to-indigo-500', pro: true, aa: 'text-white font-black italic drop-shadow-md', btn: 'bg-white/20 backdrop-blur rounded-full border border-white/30', payload: { background_type: 'gradient', background_value: 'linear-gradient(to bottom right, #f97316, #f43f5e, #6366f1)', button_style: 'glass', button_text_color: '#ffffff', button_corners: 'full', page_text_color: '#ffffff', title_color: '#ffffff', page_font: 'Outfit', use_alt_title_font: false } },
+  { id: 'haven', name: 'Haven', bg: 'bg-gradient-to-b from-[#78716c] to-[#d6d3d1]', pro: true, aa: 'text-black font-light', btn: 'bg-[#f5f5f5] rounded-full', payload: { background_type: 'gradient', background_value: 'linear-gradient(to bottom, #78716c, #d6d3d1)', button_style: 'solid', button_color: '#f5f5f5', button_text_color: '#000000', button_corners: 'full', page_text_color: '#292524', title_color: '#1c1917', page_font: 'Plus Jakarta Sans', use_alt_title_font: false } },
+  { id: 'lake', name: 'Lake', bg: 'bg-[#0f172a]', aa: 'text-white', btn: 'bg-[#1e293b] rounded-full', payload: { background_type: 'color', background_value: '#0f172a', button_style: 'solid', button_color: '#1e293b', button_text_color: '#ffffff', button_corners: 'full', page_text_color: '#94a3b8', title_color: '#ffffff', page_font: 'Inter', use_alt_title_font: false } },
+  { id: 'mineral', name: 'Mineral', bg: 'bg-[#ffedd5]', aa: 'text-black', btn: 'bg-[#fef3c7] border border-[#fcd34d] rounded-full', payload: { background_type: 'color', background_value: '#ffedd5', button_style: 'solid', button_color: '#fef3c7', button_text_color: '#92400e', button_corners: 'full', page_text_color: '#78350f', title_color: '#451a03', page_font: 'Inter', use_alt_title_font: false } },
+  { id: 'nourish', name: 'Nourish', bg: 'bg-[#65a30d]', pro: true, aa: 'text-[#d9f99d] font-bold', btn: 'bg-[#d9f99d] rounded-full', payload: { background_type: 'color', background_value: '#65a30d', button_style: 'solid', button_color: '#d9f99d', button_text_color: '#3f6212', button_corners: 'full', page_text_color: '#ecfccb', title_color: '#d9f99d', page_font: 'Inter', use_alt_title_font: true, title_font: 'Outfit' } }
+]
 
 export default function AppearanceManager() {
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -200,13 +219,9 @@ export default function AppearanceManager() {
 
       {/* 2. Scrollable Editor Column */}
       <div className="flex-1 overflow-y-auto border-r border-[#e0e0e0] bg-white relative">
-        <div className="max-w-[536px] w-full mx-auto px-8 py-10 space-y-12 pb-32">
-          
-          <div className="flex items-center justify-between mb-8 sticky top-0 bg-white/80 backdrop-blur-md z-10 py-4 -translate-y-10 border-b border-transparent">
-             {/* Note: Normally the header would sit here, but based on the layout, it's fine just to have the workspace start */}
-          </div>
+        <div className="max-w-[536px] w-full mx-auto px-8 pt-0 pb-32">
 
-          <div className="space-y-10">
+          <div className="space-y-10 mt-6">
             {activeSection === 'Header' && (
               <div className="space-y-10">
                 {/* Profile Image */}
@@ -513,6 +528,55 @@ export default function AppearanceManager() {
                </div>
             )}
 
+            {/* --- Theme Section --- */}
+            {activeSection === 'Theme' && (
+              <div className="space-y-6">
+                {/* Tabs */}
+                <div className="flex border-b border-gray-200">
+                  <button className="px-1 py-4 text-[14px] font-semibold text-gray-900 border-b-2 border-gray-900 mr-6">Customizable</button>
+                  <button className="px-1 py-4 text-[14px] font-medium text-gray-500 hover:text-gray-900 transition-colors">Curated</button>
+                </div>
+
+                <div className="grid grid-cols-4 gap-4 mt-6">
+                  {THEMES.map(theme => (
+                     <div key={theme.id} className="flex flex-col items-center gap-1.5">
+                        <button 
+                          onClick={() => {
+                            if (theme.type !== 'custom' && theme.payload) {
+                              update({ active_theme: theme.id, ...theme.payload })
+                            } else {
+                              update({ active_theme: 'custom' })
+                              setActiveSection('Colors') // rough shortcut
+                            }
+                          }}
+                          className={`w-full aspect-[2/3] rounded-[16px] relative overflow-hidden transition-all flex flex-col justify-between p-3 
+                            ${theme.type === 'custom' ? 'bg-[#f3f3f1] border border-gray-200 items-center hover:bg-[#eaeaea]' : theme.bg}
+                            ${profile?.active_theme === theme.id ? 'ring-[3px] ring-black ring-offset-2' : 'hover:scale-[1.02] active:scale-[0.98]'}
+                          `}
+                        >
+                          {theme.type === 'custom' ? (
+                             <div className="w-full h-full flex flex-col items-center justify-center">
+                               <Paintbrush size={24} className="text-gray-600 mb-2" strokeWidth={1.5} />
+                             </div>
+                          ) : (
+                             <>
+                               {theme.pro && (
+                                 <div className="absolute top-2 right-2 w-5 h-5 bg-black/80 rounded-full flex items-center justify-center text-white backdrop-blur z-10">
+                                   <Zap size={10} fill="currentColor" />
+                                 </div>
+                               )}
+                               <span className={`text-[24px] leading-tight ${theme.aa}`}>Aa</span>
+                               <div className={`w-full h-8 mt-auto ${theme.btn} shadow-sm`} />
+                             </>
+                          )}
+                        </button>
+                        <span className="text-[13px] text-gray-600 font-medium">{theme.name}</span>
+                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* --- Wallpaper Section --- */}
             {activeSection === 'Wallpaper' && (
               <div className="space-y-8">
@@ -539,7 +603,7 @@ export default function AppearanceManager() {
             )}
 
             {/* Missing sections placeholder */}
-            {!['Header', 'Text', 'Buttons', 'Colors', 'Wallpaper'].includes(activeSection) && (
+            {!['Header', 'Theme', 'Text', 'Buttons', 'Colors', 'Wallpaper'].includes(activeSection) && (
               <div className="p-12 border-2 border-dashed border-gray-200 rounded-[24px] text-center bg-gray-50">
                 <p className="text-gray-500 font-medium">Configure {activeSection} settings here</p>
                 <button onClick={() => setActiveSection('Header')} className="mt-4 text-[var(--color-brand)] font-semibold text-sm">Back to Header</button>
