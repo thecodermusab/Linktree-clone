@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, ChevronDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush, PlaySquare, X } from 'lucide-react'
+import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, ChevronDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush, PlaySquare, X, Pipette } from 'lucide-react'
 import MobilePreview from './MobilePreview'
 import {
   GRADIENT_PRESET_VALUES,
@@ -133,6 +133,7 @@ export default function AppearanceManager() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [activeSection, setActiveSection] = useState<Section>('Header')
   const [fontModalType, setFontModalType] = useState<'page' | 'title' | null>(null)
+  const [activeColorPicker, setActiveColorPicker] = useState<'page_text' | 'title' | null>(null)
   const backgroundImageInputRef = useRef<HTMLInputElement>(null)
   const backgroundVideoInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -1116,21 +1117,65 @@ export default function AppearanceManager() {
                   </button>
                 </div>
 
-                {/* Page Text Color */}
                 <div className="space-y-3 relative">
                   <h3 className="text-[14px] font-[600] text-[#111827]">Page text color</h3>
-                  <div className="relative flex w-[454px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] transition-colors hover:border-[#b0b2aa] overflow-hidden">
-                    <input
-                      type="color"
-                      value={profile.page_text_color || '#0F071B'}
-                      onChange={e => update({ page_text_color: e.target.value })}
-                      className="absolute inset-[-50px] w-[554px] h-[148px] cursor-pointer opacity-0 z-10"
-                    />
-                    <span className="text-[15px] text-[#111827] pointer-events-none">{profile.page_text_color?.toUpperCase() || '#0F071B'}</span>
-                    <div className="relative h-[22px] w-[22px] overflow-hidden rounded-full shrink-0 border border-gray-200 pointer-events-none">
+                  <button
+                    onClick={() => setActiveColorPicker(activeColorPicker === 'page_text' ? null : 'page_text')}
+                    className="flex w-[454px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
+                  >
+                    <span className="text-[15px] text-[#111827]">{profile.page_text_color?.toUpperCase() || '#0F071B'}</span>
+                    <div className="relative h-[22px] w-[22px] overflow-hidden rounded-full shrink-0 border border-gray-200">
                       <div className="h-full w-full pointer-events-none" style={{ backgroundColor: profile.page_text_color || '#0F071B' }} />
                     </div>
-                  </div>
+                  </button>
+
+                  {activeColorPicker === 'page_text' && (
+                      <div className="absolute left-0 top-[80px] z-50 w-[276px] h-[391px] bg-white rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-[16px] border border-[#e0e2d9] flex flex-col">
+                         {/* Gradient Area */}
+                         <div className="w-full h-[180px] rounded-[16px] relative overflow-hidden shrink-0 bg-gradient-to-tr from-black via-[#37197b] to-[#7421f6]">
+                           <div className="absolute inset-0 pointer-events-none opacity-50 bg-gradient-to-b from-white to-transparent" />
+                            {/* Dragger preview ring */}
+                            <div className="absolute top-[0px] left-[50px] w-[24px] h-[24px] rounded-full border-[3px] border-white shadow-sm pointer-events-none z-10" style={{ backgroundColor: '#D8CBE4', transform: 'translate(-50%, -50%)' }} />
+                         </div>
+
+                         {/* Hue Slider */}
+                         <div className="mt-[20px] h-[12px] w-full rounded-full relative shadow-[inset_0_0_2px_rgba(0,0,0,0.2)] shrink-0" style={{ background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}>
+                           <div className="absolute top-1/2 -translate-y-1/2 left-[70%] w-[18px] h-[18px] bg-white rounded-full shadow-md border border-gray-100 pointer-events-none" />
+                         </div>
+
+                         {/* Hex Input and Eyedropper */}
+                         <div className="flex items-center gap-[12px] mt-[24px] shrink-0">
+                           <div className="flex-1 h-[48px] rounded-[16px] border border-[#d5d7d5] flex items-center px-[16px]">
+                             <input 
+                               type="text" 
+                               value={profile.page_text_color?.toUpperCase() || '#0F071B'} 
+                               onChange={e => update({ page_text_color: e.target.value })}
+                               className="w-full text-[15px] font-[400] text-[#111827] outline-none bg-transparent"
+                             />
+                           </div>
+                           <button className="w-[56px] h-[48px] rounded-[24px] border border-[#d5d7d5] flex items-center justify-center flex-shrink-0 hover:bg-[#eaeaea] transition-colors">
+                             <Pipette size={20} strokeWidth={1.5} className="text-[#111827] transform -scale-x-100" />
+                           </button>
+                         </div>
+
+                         <div className="w-full h-[1px] bg-[#e0e2d9] mt-[20px] mb-[16px] shrink-0" />
+
+                         {/* Suggested sequence */}
+                         <div className="shrink-0 pb-2">
+                           <span className="text-[15px] font-[400] text-[#111827] block mb-[12px]">Suggested</span>
+                           <div className="flex gap-[12px]">
+                             {['#191528', '#FFFFFF', '#000000'].map(c => (
+                                <button 
+                                  key={c}
+                                  onClick={() => update({ page_text_color: c })}
+                                  className={`w-[44px] h-[44px] rounded-full border ${c === '#FFFFFF' ? 'border-[#d5d7d5]' : 'border-transparent'}`}
+                                  style={{ backgroundColor: c }}
+                                />
+                             ))}
+                           </div>
+                         </div>
+                      </div>
+                  )}
                 </div>
 
                 {/* Alternative Title Font Toggle */}
@@ -1169,18 +1214,63 @@ export default function AppearanceManager() {
                 {/* Title Color */}
                 <div className="space-y-3 relative">
                   <h3 className="text-[14px] font-[600] text-[#111827]">Title color</h3>
-                  <div className="relative flex w-[454px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] transition-colors hover:border-[#b0b2aa] overflow-hidden">
-                    <input
-                      type="color"
-                      value={profile.title_color || '#0F071B'}
-                      onChange={e => update({ title_color: e.target.value })}
-                      className="absolute inset-[-50px] w-[554px] h-[148px] cursor-pointer opacity-0 z-10"
-                    />
-                    <span className="text-[15px] text-[#111827] pointer-events-none">{profile.title_color?.toUpperCase() || '#0F071B'}</span>
-                    <div className="relative h-[22px] w-[22px] overflow-hidden rounded-full shrink-0 shadow-sm border border-gray-200 pointer-events-none">
+                  <button
+                    onClick={() => setActiveColorPicker(activeColorPicker === 'title' ? null : 'title')}
+                    className="flex w-[454px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
+                  >
+                    <span className="text-[15px] text-[#111827]">{profile.title_color?.toUpperCase() || '#0F071B'}</span>
+                    <div className="relative h-[22px] w-[22px] overflow-hidden rounded-full shrink-0 shadow-sm border border-gray-200">
                       <div className="h-full w-full pointer-events-none" style={{ backgroundColor: profile.title_color || '#0F071B' }} />
                     </div>
-                  </div>
+                  </button>
+
+                  {activeColorPicker === 'title' && (
+                      <div className="absolute left-0 top-[80px] z-50 w-[276px] h-[391px] bg-white rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-[16px] border border-[#e0e2d9] flex flex-col">
+                         {/* Gradient Area */}
+                         <div className="w-full h-[180px] rounded-[16px] relative overflow-hidden shrink-0 bg-gradient-to-tr from-black via-[#37197b] to-[#7421f6]">
+                           <div className="absolute inset-0 pointer-events-none opacity-50 bg-gradient-to-b from-white to-transparent" />
+                            {/* Dragger preview ring */}
+                            <div className="absolute top-[0px] left-[50px] w-[24px] h-[24px] rounded-full border-[3px] border-white shadow-sm pointer-events-none z-10" style={{ backgroundColor: '#D8CBE4', transform: 'translate(-50%, -50%)' }} />
+                         </div>
+
+                         {/* Hue Slider */}
+                         <div className="mt-[20px] h-[12px] w-full rounded-full relative shadow-[inset_0_0_2px_rgba(0,0,0,0.2)] shrink-0" style={{ background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}>
+                           <div className="absolute top-1/2 -translate-y-1/2 left-[70%] w-[18px] h-[18px] bg-white rounded-full shadow-md border border-gray-100 pointer-events-none" />
+                         </div>
+
+                         {/* Hex Input and Eyedropper */}
+                         <div className="flex items-center gap-[12px] mt-[24px] shrink-0">
+                           <div className="flex-1 h-[48px] rounded-[16px] border border-[#d5d7d5] flex items-center px-[16px]">
+                             <input 
+                               type="text" 
+                               value={profile.title_color?.toUpperCase() || '#0F071B'} 
+                               onChange={e => update({ title_color: e.target.value })}
+                               className="w-full text-[15px] font-[400] text-[#111827] outline-none bg-transparent"
+                             />
+                           </div>
+                           <button className="w-[56px] h-[48px] rounded-[24px] border border-[#d5d7d5] flex items-center justify-center flex-shrink-0 hover:bg-[#eaeaea] transition-colors">
+                             <Pipette size={20} strokeWidth={1.5} className="text-[#111827] transform -scale-x-100" />
+                           </button>
+                         </div>
+
+                         <div className="w-full h-[1px] bg-[#e0e2d9] mt-[20px] mb-[16px] shrink-0" />
+
+                         {/* Suggested sequence */}
+                         <div className="shrink-0 pb-2">
+                           <span className="text-[15px] font-[400] text-[#111827] block mb-[12px]">Suggested</span>
+                           <div className="flex gap-[12px]">
+                             {['#191528', '#FFFFFF', '#000000'].map(c => (
+                                <button 
+                                  key={c}
+                                  onClick={() => update({ title_color: c })}
+                                  className={`w-[44px] h-[44px] rounded-full border ${c === '#FFFFFF' ? 'border-[#d5d7d5]' : 'border-transparent'}`}
+                                  style={{ backgroundColor: c }}
+                                />
+                             ))}
+                           </div>
+                         </div>
+                      </div>
+                  )}
                 </div>
 
                 {/* Title Size */}
