@@ -650,69 +650,6 @@ export default function AppearanceManager() {
               </div>
             )}
 
-            {/* --- Text Section --- */}
-            {activeSection === 'Text' && (
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900 mb-6 tracking-wide">Typography</h3>
-                  <div className="bg-white border rounded-[24px] p-6 shadow-sm border-gray-200 space-y-6">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-2">Heading Font</label>
-                      <select
-                        value={profile.title_font}
-                        onChange={(e) => update({ title_font: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-transparent hover:border-gray-200 rounded-xl text-[15px] focus:bg-white focus:ring-2 focus:ring-black focus:border-black transition-all outline-none appearance-none cursor-pointer"
-                      >
-                        {TITLE_FONTS.map(fontOption => (
-                          <option key={fontOption.name} value={fontOption.name}>
-                            {fontOption.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-500 mb-2">Body Font</label>
-                      <select
-                        value={profile.page_font}
-                        onChange={(e) => update({ page_font: e.target.value })}
-                        className="w-full px-4 py-3 bg-gray-50 border border-transparent hover:border-gray-200 rounded-xl text-[15px] focus:bg-white focus:ring-2 focus:ring-black focus:border-black transition-all outline-none appearance-none cursor-pointer"
-                      >
-                        {GOOGLE_FONTS.map(fontOption => (
-                        <option key={fontOption.name} value={fontOption.name}>
-                          {fontOption.name}
-                        </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900 mb-6 tracking-wide">Text Colors</h3>
-                  <div className="bg-white border rounded-[24px] p-6 shadow-sm border-gray-200 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[15px] font-medium text-gray-900">Heading Color</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-400 uppercase">{profile.title_color}</span>
-                        <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden relative cursor-pointer shadow-sm">
-                          <input type="color" value={profile.title_color || '#000000'} onChange={e => update({ title_color: e.target.value })} className="absolute inset-[-10px] w-20 h-20 cursor-pointer" />
-                        </div>
-                      </div>
-                    </div>
-                    <hr className="border-gray-100" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-[15px] font-medium text-gray-900">Body Color</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-400 uppercase">{profile.page_text_color}</span>
-                        <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden relative cursor-pointer shadow-sm">
-                          <input type="color" value={profile.page_text_color || '#000000'} onChange={e => update({ page_text_color: e.target.value })} className="absolute inset-[-10px] w-20 h-20 cursor-pointer" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* --- Buttons Section --- */}
             {activeSection === 'Buttons' && (
