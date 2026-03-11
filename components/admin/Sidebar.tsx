@@ -25,7 +25,7 @@ export default function Sidebar() {
   const isActive = (path: string) => pathname.startsWith(path)
 
   return (
-    <aside className="w-[234px] h-screen bg-[#f3f3f1] border-r border-[#e0e0e0] flex flex-col shrink-0">
+    <aside className="w-[240px] h-[595px] bg-[#f3f3f1] border-r border-[#e0e0e0] flex flex-col shrink-0">
       {/* User Profile Area */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-2 cursor-pointer hover:bg-black/5 p-1.5 rounded-lg transition-colors">

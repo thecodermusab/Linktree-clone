@@ -122,7 +122,7 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
   const pageFontFamily = `'${profile.page_font}', sans-serif`
 
   // Size derivation based on new settings (defaulting for backwards compat if empty)
-  const titleSizeVal = profile.title_size === 'large' ? '2.5rem' : '2rem'
+  const titleSizeVal = profile.title_size === 'large' ? '2.2rem' : '1.85rem'
   const finalTitleFont = profile.use_alt_title_font ? titleFontFamily : pageFontFamily
 
   return (
@@ -189,8 +189,8 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
                 <div
                   className="relative"
                   style={{
-                    width: 76,
-                    height: 76,
+                    width: 96,
+                    height: 96,
                     borderRadius: '50%',
                     boxShadow: '0 0 0 2px rgba(255,255,255,0.25)',
                     overflow: 'hidden',
@@ -217,18 +217,21 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
                {profile.title_style === 'logo' && profile.logo_url ? (
                  <img src={profile.logo_url} alt="Logo" className="h-10 object-contain mb-2" />
                ) : (
-                 <h1
-                   className="font-bold tracking-wide mb-1"
-                   style={{
-                     fontFamily: finalTitleFont,
-                     color: profile.title_color,
-                     fontSize: titleSizeVal,
-                     lineHeight: 1.1,
-                     textShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                   }}
-                 >
-                   {profile.display_name}
-                 </h1>
+                 <div className="flex items-center justify-center w-[79px] h-[34px] mb-1">
+                   <h1
+                     className="font-bold tracking-wide text-center"
+                     style={{
+                       fontFamily: finalTitleFont,
+                       color: profile.title_color,
+                       fontSize: titleSizeVal,
+                       lineHeight: 1.1,
+                       textShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                       whiteSpace: 'nowrap'
+                     }}
+                   >
+                     {profile.display_name}
+                   </h1>
+                 </div>
                )}
 
                <p
@@ -252,22 +255,17 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
                     <div
                       key={link.id}
                       style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: 'rgba(255,255,255,0.13)',
-                        border: '1px solid rgba(255,255,255,0.2)',
                       }}
                     >
                       {icon ? (
-                        <svg viewBox="0 0 24 24" style={{ width: 14, height: 14, fill: profile.page_text_color }}>
+                        <svg viewBox="0 0 24 24" style={{ width: 33, height: 33, fill: profile.page_text_color }}>
                           <path d={icon.path} />
                         </svg>
                       ) : (
-                         <span style={{ fontSize: 10, fontWeight: 700, color: profile.page_text_color }}>
+                         <span style={{ fontSize: 22, fontWeight: 700, color: profile.page_text_color }}>
                            {link.title.charAt(0).toUpperCase()}
                          </span>
                       )}
@@ -285,7 +283,7 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
 
               if (isBasicLink) {
                 return (
-                  <div key={link.id} className={`flex items-center w-full min-h-[48px] px-3 ${cornerClass}`} style={btnStyle}>
+                  <div key={link.id} className={`flex items-center w-full max-w-[360px] h-[64px] px-3 transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`} style={btnStyle}>
                      <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
                       {icon ? (
                         <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d={icon.path} /></svg>
@@ -302,18 +300,15 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
 
               if (link.type === 'project' || link.type === 'commerce') {
                 return (
-                  <div key={link.id} className={`w-full overflow-hidden ${cornerClass}`} style={btnStyle}>
+                  <div key={link.id} className={`w-full max-w-[360px] h-[64px] flex items-center overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`} style={btnStyle}>
                     {link.image_url && (
-                       <div className="relative w-full aspect-[3/2]">
+                       <div className="relative h-full shrink-0 aspect-[1/1]">
                          <img src={link.image_url} alt="" className="w-full h-full object-cover" />
                        </div>
                     )}
-                    <div className="p-3 flex items-center justify-between">
+                    <div className="flex-1 px-3 flex items-center justify-between truncate">
                        <div>
-                         <h3 className="font-semibold text-sm" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.title}</h3>
-                         {link.description && link.type === 'project' && (
-                           <p className="text-[11px] mt-0.5 opacity-75" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.description}</p>
-                         )}
+                         <h3 className="font-semibold text-sm truncate" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.title}</h3>
                        </div>
                        {link.price && link.type === 'commerce' && (
                          <span className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap ml-3" style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: profile.page_text_color }}>{link.price}</span>
@@ -326,8 +321,8 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
               if (link.type === 'video') {
                  const thumbnail = getVideoThumbnail(link.image_url, link.url)
                  return (
-                   <div key={link.id} className={`w-full overflow-hidden ${cornerClass}`} style={btnStyle}>
-                      <div className="relative w-full aspect-video">
+                   <div key={link.id} className={`w-full max-w-[360px] h-[64px] flex items-center overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`} style={btnStyle}>
+                      <div className="relative h-full shrink-0 aspect-[1/1]">
                          {thumbnail && <img src={thumbnail} className="w-full h-full object-cover" alt="" />}
                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
                            <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
@@ -335,8 +330,8 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
                            </div>
                          </div>
                       </div>
-                      <div className="p-3">
-                         <h3 className="font-semibold text-sm" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.title}</h3>
+                      <div className="flex-1 px-3 truncate">
+                         <h3 className="font-semibold text-sm truncate" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.title}</h3>
                       </div>
                    </div>
                  )
@@ -345,7 +340,7 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
               if (link.type === 'text') {
                 return (
                   <div key={link.id} className="w-full text-center py-2 my-1">
-                    <h3 className="text-[15px] font-bold" style={{ fontFamily: finalTitleFont, color: profile.page_text_color }}>{link.title}</h3>
+                    <h3 className="text-[15px] font-bold" style={{ fontFamily: finalTitleFont, color: profile.title_color }}>{link.title}</h3>
                     {link.description && (
                       <p className="text-xs opacity-80 mt-1" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.description}</p>
                     )}
@@ -356,12 +351,6 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
               return null
             })}
           </section>
-
-          <footer className="mt-8 pb-4 text-center">
-            <p className="text-[10px] opacity-70" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>
-              {profile.footer_text}
-            </p>
-          </footer>
        </div>
     </div>
   )

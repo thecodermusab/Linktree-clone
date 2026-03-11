@@ -19,7 +19,7 @@ export async function PUT(
     .from('links')
     .update({
       title: body.title,
-      url: body.url,
+      url: body.url || '',
       type: body.type,
       icon: body.icon,
       image_url: body.image_url,

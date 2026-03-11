@@ -194,11 +194,15 @@ export default function LinksManager() {
     if (!currentLink) return
     setSaving(true)
     try {
+      const payload = {
+        ...currentLink,
+        url: currentLink.type === 'text' ? '' : currentLink.url,
+      }
       const isEditing = !!currentLink.id
       const res = await fetch(isEditing ? `/api/links/${currentLink.id}` : '/api/links', {
         method: isEditing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(currentLink),
+        body: JSON.stringify(payload),
       })
       if (res.ok) {
         setIsModalOpen(false)
@@ -457,17 +461,32 @@ export default function LinksManager() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">URL</label>
-                    <input
-                      required
-                      type="url"
-                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
-                      placeholder="https://..."
-                      value={currentLink?.url || ''}
-                      onChange={(e) => setCurrentLink(c => ({ ...c!, url: e.target.value }))}
-                    />
-                  </div>
+                  {currentLink?.type !== 'text' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">URL</label>
+                      <input
+                        required
+                        type="url"
+                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                        placeholder="https://..."
+                        value={currentLink?.url || ''}
+                        onChange={(e) => setCurrentLink(c => ({ ...c!, url: e.target.value }))}
+                      />
+                    </div>
+                  )}
+
+                  {currentLink?.type === 'text' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">Body Text</label>
+                      <textarea
+                        className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        rows={3}
+                        placeholder="Add supporting text for this section..."
+                        value={currentLink?.description || ''}
+                        onChange={(e) => setCurrentLink(c => ({ ...c!, description: e.target.value }))}
+                      />
+                    </div>
+                  )}
 
                   {currentLink?.type === 'social' && (
                     <div>
@@ -561,7 +580,7 @@ export default function LinksManager() {
                   <button
                     type="submit"
                     form="link-form"
-                    disabled={saving || !currentLink?.title || !currentLink?.url}
+                    disabled={saving || !currentLink?.title || (currentLink?.type !== 'text' && !currentLink?.url)}
                     className="px-5 py-2 text-white bg-indigo-600 rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
                   >
                     {saving ? <><Loader2 size={15} className="animate-spin" /> Saving...</> : currentLink?.id ? 'Save Changes' : 'Add Link'}

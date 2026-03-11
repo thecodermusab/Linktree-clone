@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Loader2, Upload, User, LayoutTemplate, Image as ImageIcon, Type, Square, Palette, ArrowDown, ChevronDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush, PlaySquare, X, Pipette } from 'lucide-react'
+import { Loader2, Upload, ChevronDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush, PlaySquare, X, Pipette } from 'lucide-react'
+import { User as PhUser, Layout as PhLayout, StackSimple as PhStackSimple, TextT as PhTextT, Rows as PhRows, Palette as PhPalette, Asterisk as PhAsterisk } from '@phosphor-icons/react'
 import MobilePreview from './MobilePreview'
 import {
   GRADIENT_PRESET_VALUES,
@@ -9,6 +10,7 @@ import {
   parseBackgroundEffect,
   stringifyBackgroundEffect,
 } from '@/lib/appearance'
+import { buildGoogleFontsStylesheetUrl } from '@/lib/fonts'
 
 type Profile = {
   display_name: string
@@ -33,9 +35,10 @@ type Profile = {
   use_alt_title_font?: boolean
   logo_url?: string | null
   active_theme?: string
+  button_shadow?: string
 }
 
-const SECTIONS = ['Header', 'Theme', 'Wallpaper', 'Text', 'Buttons', 'Colors', 'Footer'] as const
+const SECTIONS = ['Header', 'Theme', 'Wallpaper', 'Text', 'Buttons', 'Colors'] as const
 type Section = (typeof SECTIONS)[number]
 
 const GOOGLE_FONTS = [
@@ -50,7 +53,10 @@ const GOOGLE_FONTS = [
   { name: 'Space Grotesk', pro: true }, { name: 'Syne', pro: true },
   { name: 'BioRhyme', pro: true }, { name: 'Bitter', pro: true },
   { name: 'Caudex', pro: false }, { name: 'Corben', pro: false },
-  { name: 'Domine', pro: false }, { name: 'Hahmlet', pro: false }
+  { name: 'Domine', pro: false }, { name: 'Hahmlet', pro: false },
+  { name: 'Playfair Display', pro: true }, { name: 'Merriweather', pro: true },
+  { name: 'Bebas Neue', pro: true }, { name: 'Outfit', pro: false },
+  { name: 'Plus Jakarta Sans', pro: false }, { name: 'Gasoek One', pro: false },
 ]
 
 const TITLE_FONTS = GOOGLE_FONTS
@@ -125,6 +131,103 @@ function buildGradientValue(direction: string, from: string, to: string) {
   return `linear-gradient(${direction}, ${from}, ${to})`
 }
 
+function normalizeHexColor(value: string | null | undefined, fallback: string) {
+  const candidate = (value || '').trim()
+
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(candidate)) {
+    return candidate.toUpperCase()
+  }
+
+  if (/^([0-9a-f]{3}|[0-9a-f]{6})$/i.test(candidate)) {
+    return `#${candidate.toUpperCase()}`
+  }
+
+  return fallback.toUpperCase()
+}
+
+function ColorPickerPopover({
+  value,
+  fallback,
+  onChange,
+}: {
+  value: string | null | undefined
+  fallback: string
+  onChange: (value: string) => void
+}) {
+  const [draft, setDraft] = useState(normalizeHexColor(value, fallback))
+
+  useEffect(() => {
+    setDraft(normalizeHexColor(value, fallback))
+  }, [fallback, value])
+
+  const commitDraft = () => {
+    const normalized = normalizeHexColor(draft, fallback)
+    setDraft(normalized)
+    onChange(normalized)
+  }
+
+  const suggestedColors = ['#191528', '#FFFFFF', '#000000']
+  const displayValue = normalizeHexColor(value, fallback)
+
+  return (
+    <div className="absolute left-0 top-[80px] z-50 w-[276px] rounded-[24px] border border-[#e0e2d9] bg-white p-4 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+      <div className="rounded-[18px] border border-[#e0e2d9] bg-[#f6f6f5] p-4">
+        <input
+          type="color"
+          value={displayValue}
+          onChange={(event) => {
+            const nextColor = event.target.value.toUpperCase()
+            setDraft(nextColor)
+            onChange(nextColor)
+          }}
+          className="h-40 w-full cursor-pointer rounded-[14px] border-0 bg-transparent"
+        />
+      </div>
+
+      <div className="mt-4 flex items-center gap-3">
+        <div className="flex-1 rounded-[16px] border border-[#d5d7d5] px-4 py-3">
+          <input
+            type="text"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value.toUpperCase())}
+            onBlur={commitDraft}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                commitDraft()
+              }
+            }}
+            className="w-full bg-transparent text-[15px] font-[400] text-[#111827] outline-none"
+          />
+        </div>
+        <div className="flex h-[48px] w-[56px] items-center justify-center rounded-[24px] border border-[#d5d7d5]">
+          <Pipette size={20} strokeWidth={1.5} className="text-[#111827] -scale-x-100" />
+        </div>
+      </div>
+
+      <div className="my-5 h-px bg-[#e0e2d9]" />
+
+      <div>
+        <span className="mb-3 block text-[15px] font-[400] text-[#111827]">Suggested</span>
+        <div className="flex gap-3">
+          {suggestedColors.map(color => (
+            <button
+              key={color}
+              type="button"
+              onClick={() => {
+                setDraft(color)
+                onChange(color)
+              }}
+              className={`h-11 w-11 rounded-full border ${color === '#FFFFFF' ? 'border-[#d5d7d5]' : 'border-transparent'}`}
+              style={{ backgroundColor: color }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AppearanceManager() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -133,7 +236,7 @@ export default function AppearanceManager() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [activeSection, setActiveSection] = useState<Section>('Header')
   const [fontModalType, setFontModalType] = useState<'page' | 'title' | null>(null)
-  const [activeColorPicker, setActiveColorPicker] = useState<'page_text' | 'title' | null>(null)
+  const [activeColorPicker, setActiveColorPicker] = useState<'page_text' | 'title' | 'button_color' | 'button_text_color' | null>(null)
   const backgroundImageInputRef = useRef<HTMLInputElement>(null)
   const backgroundVideoInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -423,35 +526,54 @@ export default function AppearanceManager() {
     )
   }
 
+  const googleFontsUrl = buildGoogleFontsStylesheetUrl(profile.page_font, profile.title_font)
+
   return (
     <div className="flex h-full w-full bg-white">
+      {googleFontsUrl && <link rel="stylesheet" href={googleFontsUrl} />}
       {/* 1. Sub-nav Column */}
-      <div className="w-[212px] border-r border-[#e0e0e0] flex flex-col pt-10 px-4 shrink-0 overflow-y-auto">
+      <div className="w-[204px] h-[803px] border-r border-[#e0e0e0] flex flex-col pt-[60px] px-4 shrink-0 overflow-y-auto">
         <nav className="space-y-1">
           {SECTIONS.map(s => {
             const isActive = activeSection === s
             
-            let Icon = User
-            if (s === 'Header') Icon = User
-            if (s === 'Theme') Icon = LayoutTemplate
-            if (s === 'Wallpaper') Icon = ImageIcon
-            if (s === 'Text') Icon = Type
-            if (s === 'Buttons') Icon = Square
-            if (s === 'Colors') Icon = Palette
-            if (s === 'Footer') Icon = ArrowDown
+            let Icon = PhUser
+            if (s === 'Header') Icon = PhUser
+            if (s === 'Theme') Icon = PhLayout
+            if (s === 'Wallpaper') Icon = PhStackSimple
+            if (s === 'Text') Icon = PhTextT
+            if (s === 'Buttons') Icon = PhRows
+            if (s === 'Colors') Icon = PhPalette
 
             return (
               <button 
                 key={s} 
                 onClick={() => setActiveSection(s)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`w-[131px] h-[36px] flex items-center justify-start gap-[12px] px-3 rounded-lg transition-colors ${
                   isActive 
-                  ? 'text-gray-900 bg-gray-50' 
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                  ? 'bg-gray-100' 
+                  : 'hover:bg-gray-50'
                 }`}
               >
-                <Icon size={18} className={isActive ? 'text-gray-900' : 'text-gray-400'} />
-                {s}
+                <div className="flex shrink-0 items-center justify-center w-[24px] h-[24px]">
+                  <Icon 
+                    size={24} 
+                    weight={isActive ? "fill" : "regular"} 
+                    className={isActive ? 'text-black' : 'text-[#676b5f]'} 
+                    style={{ minWidth: '24px', minHeight: '24px', width: '24px', height: '24px' }}
+                  />
+                </div>
+                <span 
+                  style={{ 
+                    fontFamily: '"Link Sans v2.2 Variable", "Link Sans Product", -apple-system, "system-ui", "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Oxygen, Cantarell, sans-serif',
+                    fontWeight: 500,
+                    color: isActive ? '#000000' : 'rgba(0, 0, 0, 0.9)',
+                    fontSize: '12px',
+                    lineHeight: '16px'
+                  }}
+                >
+                  {s}
+                </span>
               </button>
             )
           })}
@@ -459,7 +581,7 @@ export default function AppearanceManager() {
       </div>
 
       {/* 2. Scrollable Editor Column */}
-      <div className="flex-1 overflow-y-auto border-r border-[#e0e0e0] bg-[#FAFAFA] relative">
+      <div className="w-[565px] h-[803px] shrink-0 overflow-y-auto border-r border-[#e0e0e0] bg-[#FAFAFA] relative">
         <div className="max-w-[536px] w-full mx-auto px-8 py-10">
 
           <div className="space-y-10 mt-6">
@@ -583,69 +705,8 @@ export default function AppearanceManager() {
                   )}
                 </div>
 
-                {/* Size */}
-                <div>
-                  <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529] mb-4">Size</h3>
-                  <div className="flex items-center gap-3">
-                     <button 
-                       onClick={() => update({ title_size: 'small' })}
-                       className={`w-[221px] h-[52px] rounded-[16px] transition-all border-[2px] flex items-center justify-center ${
-                         profile.title_size !== 'large' ? 'border-gray-900 bg-white' : 'border-transparent bg-[#f3f3f1] hover:bg-[#eaeaea] text-gray-500'
-                       }`}
-                     >
-                       <span className="text-[14px] leading-[20px] font-[400] text-[#212529]">Small</span>
-                     </button>
-                     
-                     <button 
-                       onClick={() => update({ title_size: 'large' })}
-                       className={`relative w-[215px] h-[50px] rounded-[16px] transition-all border-[2px] flex items-center justify-center ${
-                         profile.title_size === 'large' ? 'border-gray-900 bg-white' : 'border-transparent bg-[#f3f3f1] hover:bg-[#eaeaea] text-gray-500'
-                       }`}
-                     >
-                       <span className="text-[14px] leading-[20px] font-[400] text-[#212529]">Large</span>
-                       <div className={`absolute top-1/2 -translate-y-1/2 right-4 w-6 h-6 rounded-full flex items-center justify-center text-white ${profile.title_size === 'large' ? 'bg-gray-900' : 'bg-gray-500'}`}>
-                          <Zap size={12} fill="currentColor" />
-                       </div>
-                     </button>
-                  </div>
-                </div>
-
-                {/* Alternative Title Font */}
-                <div className="pb-8">
-                  <div className="flex items-center justify-between mb-4">
-                     <div>
-                       <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529]">Alternative title font</h3>
-                       <p className="text-[12px] leading-[16px] font-[400] text-[rgba(0,0,0,0.9)] mt-0.5">Matches page font by default</p>
-                     </div>
-                     <div className="flex items-center gap-3">
-                       <div className={`w-6 h-6 rounded-full flex items-center justify-center text-white ${profile.use_alt_title_font ? 'bg-gray-900' : 'bg-gray-500'}`}>
-                         <Zap size={12} fill="currentColor" />
-                       </div>
-                       <button 
-                         onClick={() => update({ use_alt_title_font: !profile.use_alt_title_font })}
-                         className={`w-[48px] h-[28px] rounded-full flex items-center p-1 transition-all ${profile.use_alt_title_font ? 'bg-gray-900' : 'bg-gray-500'}`}
-                       >
-                         <div className={`w-[20px] h-[20px] rounded-full shadow-sm transition-all bg-white ${profile.use_alt_title_font ? 'translate-x-[20px]' : 'translate-x-0'}`}></div>
-                       </button>
-                     </div>
-                  </div>
-
-                  {profile.use_alt_title_font && (
-                     <div className="mt-6">
-                        <h3 className="text-[14px] leading-[20px] font-[500] text-[#212529] mb-4">Title font</h3>
-                        <select
-                          value={profile.title_font}
-                          onChange={(e) => update({ title_font: e.target.value })}
-                          className="w-full px-4 py-3 bg-gray-50 border border-transparent hover:border-gray-200 rounded-xl text-[14px] leading-[20px] font-[400] text-[#212529] focus:bg-white focus:ring-2 focus:ring-black focus:border-black transition-all outline-none appearance-none cursor-pointer"
-                        >
-                          {TITLE_FONTS.map(fontOption => (
-                            <option key={fontOption.name} value={fontOption.name}>
-                              {fontOption.name}
-                            </option>
-                          ))}
-                        </select>
-                     </div>
-                  )}
+                <div className="rounded-[20px] border border-dashed border-[#d5d7d5] bg-white/80 p-4 text-[13px] text-[#676b5f]">
+                  Fine-tune title size, title font, and colors in the Text section.
                 </div>
 
               </div>
@@ -654,47 +715,157 @@ export default function AppearanceManager() {
 
             {/* --- Buttons Section --- */}
             {activeSection === 'Buttons' && (
-              <div className="space-y-8">
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900 mb-6 tracking-wide">Fill</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Simulated button shapes */}
-                    {['Solid', 'Outline', 'Glass', 'HardShadow'].map(style => (
-                      <button 
-                        key={style}
-                        onClick={() => update({ button_style: style.toLowerCase() })}
-                        className={`h-16 flex items-center justify-center rounded-xl border-2 transition-all ${profile.button_style === style.toLowerCase() ? 'border-[var(--color-brand)] bg-indigo-50/30' : 'border-gray-200 hover:border-gray-300 bg-white'}`}
+              <div className="space-y-10">
+                {/* Button Style */}
+                <div className="space-y-4">
+                  <h3 className="text-[15px] font-[600] text-[#111827]">Button style</h3>
+                  <div className="flex gap-3">
+                    {/* Solid */}
+                    <div className="flex flex-col items-center gap-2">
+                       <button 
+                         onClick={() => update({ button_style: 'solid' })}
+                         className={`w-[143px] h-[76px] rounded-[16px] transition-all flex items-center justify-center ${
+                           profile.button_style === 'solid' ? 'border-[2px] border-[#111827] bg-[#f6f6f5]' : 'border-[2px] border-transparent bg-[#f6f6f5] hover:bg-[#eaeaea]'
+                         }`}
+                       >
+                          <div className="w-[84px] h-[32px] bg-[#d5d7d5] rounded-full" />
+                       </button>
+                       <span className="text-[13px] font-[400] text-[#676b5f]">Solid</span>
+                    </div>
+
+                    {/* Glass */}
+                    <div className="flex flex-col items-center gap-2 relative">
+                       <button 
+                         onClick={() => update({ button_style: 'glass' })}
+                         className={`w-[143px] h-[76px] rounded-[16px] transition-all flex items-center justify-center relative ${
+                           profile.button_style === 'glass' ? 'border-[2px] border-[#111827] bg-[#f6f6f5]' : 'border-[2px] border-transparent bg-[#f6f6f5] hover:bg-[#eaeaea]'
+                         }`}
+                       >
+                          <div className="w-[84px] h-[32px] border border-white bg-white/50 backdrop-blur-sm rounded-full" />
+                          <div className="absolute -top-2 -right-2 w-6 h-6 bg-[#676b5f] rounded-full flex items-center justify-center text-white z-10">
+                            <Zap size={12} fill="currentColor" strokeWidth={0} />
+                          </div>
+                       </button>
+                       <span className="text-[13px] font-[400] text-[#676b5f]">Glass</span>
+                    </div>
+
+                    {/* Outline */}
+                    <div className="flex flex-col items-center gap-2">
+                       <button 
+                         onClick={() => update({ button_style: 'outline' })}
+                         className={`w-[143px] h-[76px] rounded-[16px] transition-all flex items-center justify-center ${
+                           profile.button_style === 'outline' ? 'border-[2px] border-[#111827] bg-[#f6f6f5]' : 'border-[2px] border-transparent bg-[#f6f6f5] hover:bg-[#eaeaea]'
+                         }`}
+                       >
+                          <div className="w-[84px] h-[32px] border-[1.5px] border-[#d5d7d5] rounded-full" />
+                       </button>
+                       <span className="text-[13px] font-[400] text-[#676b5f]">Outline</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Corner Roundness */}
+                <div className="space-y-4">
+                  <h3 className="text-[15px] font-[600] text-[#111827]">Corner roundness</h3>
+                  <div className="flex flex-wrap gap-2 w-full">
+                    {[
+                      { id: 'square', label: 'Square', src: '/button/Squar.svg' },
+                      { id: 'round', label: 'Round', src: '/button/Round.svg' },
+                      { id: 'rounder', label: 'Rounder', src: '/button/Rounder.svg' },
+                      { id: 'full', label: 'Full', src: '/button/Full.svg' }
+                    ].map((corner) => {
+                      const isActive = profile.button_corners === corner.id;
+                      return (
+                        <div key={corner.id} className="flex flex-col items-center gap-2">
+                          <button
+                            onClick={() => update({ button_corners: corner.id })}
+                            className={`w-[104px] h-[52px] flex items-center justify-center rounded-2xl transition-all ${
+                              isActive 
+                                ? 'bg-white border-[2px] border-black' 
+                                : 'bg-gray-100 border-[2px] border-transparent hover:bg-gray-200'
+                            }`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={corner.src} alt={`${corner.label} Icon`} className="max-w-[80px] h-auto" />
+                          </button>
+                          <span className={`${isActive ? 'text-black font-bold' : 'text-[#676b5f] font-normal'} text-[13px] text-center`}>
+                            {corner.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Button Shadow */}
+                <div className="space-y-4">
+                  <h3 className="text-[15px] font-[600] text-[#111827]">Button shadow</h3>
+                  <div className="flex gap-3">
+                    {[
+                      { id: 'none', label: 'None' },
+                      { id: 'soft', label: 'Soft' },
+                      { id: 'strong', label: 'Strong' },
+                      { id: 'hard', label: 'Hard' }
+                    ].map((shadow) => (
+                      <button
+                        key={shadow.id}
+                        onClick={() => update({ button_shadow: shadow.id })}
+                        className={`w-[104px] h-[52px] rounded-[16px] text-[15px] font-[500] transition-all flex items-center justify-center ${
+                          profile.button_shadow === shadow.id ? 'border-[2px] border-[#111827] bg-[#f6f6f5] text-[#111827]' : 'border-[2px] border-transparent bg-[#f6f6f5] text-[#111827] hover:bg-[#eaeaea]'
+                        }`}
                       >
-                         <div className="w-3/4 h-8 bg-gray-900 rounded-[8px] opacity-10"></div>
+                        {shadow.label}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900 mb-6 tracking-wide">Button Colors</h3>
-                  <div className="bg-white border rounded-[24px] p-6 shadow-sm border-gray-200 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[15px] font-medium text-gray-900">Button Color</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-400 uppercase">{profile.button_color}</span>
-                        <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden relative cursor-pointer shadow-sm">
-                          <input type="color" value={profile.button_color || '#000000'} onChange={e => update({ button_color: e.target.value })} className="absolute inset-[-10px] w-20 h-20 cursor-pointer" />
-                        </div>
-                      </div>
+                {/* Button Color */}
+                <div className="space-y-3 relative">
+                  <h3 className="text-[15px] font-[600] text-[#111827]">Button color</h3>
+                  <button
+                    onClick={() => setActiveColorPicker(activeColorPicker === 'button_color' ? null : 'button_color')}
+                    className="flex h-[52px] w-[453px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
+                  >
+                    <span className="text-[15px] font-[400] text-[#111827]">{profile.button_color?.toUpperCase() || '#E4E5E6'}</span>
+                    <div className="relative w-[24px] h-[24px] rounded-full border border-[#d5d7d5] overflow-hidden shrink-0">
+                      <div className="w-full h-full pointer-events-none" style={{ backgroundColor: profile.button_color || '#E4E5E6' }} />
                     </div>
-                    <hr className="border-gray-100" />
-                    <div className="flex items-center justify-between">
-                      <span className="text-[15px] font-medium text-gray-900">Button Text Color</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-400 uppercase">{profile.button_text_color}</span>
-                        <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden relative cursor-pointer shadow-sm">
-                          <input type="color" value={profile.button_text_color || '#ffffff'} onChange={e => update({ button_text_color: e.target.value })} className="absolute inset-[-10px] w-20 h-20 cursor-pointer" />
-                        </div>
-                      </div>
+                  </button>
+                  {activeColorPicker === 'button_color' && (
+                    <div className="absolute top-[80px] z-50">
+                      <ColorPickerPopover
+                        value={profile.button_color}
+                        fallback="#E4E5E6"
+                        onChange={(color) => update({ button_color: color })}
+                      />
                     </div>
-                  </div>
+                  )}
                 </div>
+
+                {/* Button Text Color */}
+                <div className="space-y-3 relative">
+                  <h3 className="text-[15px] font-[600] text-[#111827]">Button text color</h3>
+                  <button
+                    onClick={() => setActiveColorPicker(activeColorPicker === 'button_text_color' ? null : 'button_text_color')}
+                    className="flex h-[52px] w-[453px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
+                  >
+                    <span className="text-[15px] font-[400] text-[#111827]">{profile.button_text_color?.toUpperCase() || '#010101'}</span>
+                    <div className="relative w-[24px] h-[24px] rounded-full overflow-hidden shrink-0 border border-gray-200">
+                      <div className="w-full h-full pointer-events-none" style={{ backgroundColor: profile.button_text_color || '#010101' }} />
+                    </div>
+                  </button>
+                  {activeColorPicker === 'button_text_color' && (
+                    <div className="absolute top-[80px] z-50">
+                      <ColorPickerPopover
+                        value={profile.button_text_color}
+                        fallback="#010101"
+                        onChange={(color) => update({ button_text_color: color })}
+                      />
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
 
@@ -1109,8 +1280,11 @@ export default function AppearanceManager() {
                 <div className="space-y-3">
                   <h3 className="text-[14px] font-[600] text-[#111827]">Page font</h3>
                   <button
-                    onClick={() => setFontModalType('page')}
-                    className="w-[454px] flex items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] text-[15px] text-[#111827] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
+                    onClick={() => {
+                      setActiveColorPicker(null)
+                      setFontModalType('page')
+                    }}
+                    className="flex h-[48px] w-full items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 text-[15px] text-[#111827] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
                   >
                     <span>{profile.page_font || 'Poppins'}</span>
                     <ChevronDown size={20} strokeWidth={1.5} className="text-[#111827] pointer-events-none" />
@@ -1121,7 +1295,7 @@ export default function AppearanceManager() {
                   <h3 className="text-[14px] font-[600] text-[#111827]">Page text color</h3>
                   <button
                     onClick={() => setActiveColorPicker(activeColorPicker === 'page_text' ? null : 'page_text')}
-                    className="flex w-[454px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
+                    className="flex h-[48px] w-full items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
                   >
                     <span className="text-[15px] text-[#111827]">{profile.page_text_color?.toUpperCase() || '#0F071B'}</span>
                     <div className="relative h-[22px] w-[22px] overflow-hidden rounded-full shrink-0 border border-gray-200">
@@ -1130,51 +1304,11 @@ export default function AppearanceManager() {
                   </button>
 
                   {activeColorPicker === 'page_text' && (
-                      <div className="absolute left-0 top-[80px] z-50 w-[276px] h-[391px] bg-white rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-[16px] border border-[#e0e2d9] flex flex-col">
-                         {/* Gradient Area */}
-                         <div className="w-full h-[180px] rounded-[16px] relative overflow-hidden shrink-0 bg-gradient-to-tr from-black via-[#37197b] to-[#7421f6]">
-                           <div className="absolute inset-0 pointer-events-none opacity-50 bg-gradient-to-b from-white to-transparent" />
-                            {/* Dragger preview ring */}
-                            <div className="absolute top-[0px] left-[50px] w-[24px] h-[24px] rounded-full border-[3px] border-white shadow-sm pointer-events-none z-10" style={{ backgroundColor: '#D8CBE4', transform: 'translate(-50%, -50%)' }} />
-                         </div>
-
-                         {/* Hue Slider */}
-                         <div className="mt-[20px] h-[12px] w-full rounded-full relative shadow-[inset_0_0_2px_rgba(0,0,0,0.2)] shrink-0" style={{ background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}>
-                           <div className="absolute top-1/2 -translate-y-1/2 left-[70%] w-[18px] h-[18px] bg-white rounded-full shadow-md border border-gray-100 pointer-events-none" />
-                         </div>
-
-                         {/* Hex Input and Eyedropper */}
-                         <div className="flex items-center gap-[12px] mt-[24px] shrink-0">
-                           <div className="flex-1 h-[48px] rounded-[16px] border border-[#d5d7d5] flex items-center px-[16px]">
-                             <input 
-                               type="text" 
-                               value={profile.page_text_color?.toUpperCase() || '#0F071B'} 
-                               onChange={e => update({ page_text_color: e.target.value })}
-                               className="w-full text-[15px] font-[400] text-[#111827] outline-none bg-transparent"
-                             />
-                           </div>
-                           <button className="w-[56px] h-[48px] rounded-[24px] border border-[#d5d7d5] flex items-center justify-center flex-shrink-0 hover:bg-[#eaeaea] transition-colors">
-                             <Pipette size={20} strokeWidth={1.5} className="text-[#111827] transform -scale-x-100" />
-                           </button>
-                         </div>
-
-                         <div className="w-full h-[1px] bg-[#e0e2d9] mt-[20px] mb-[16px] shrink-0" />
-
-                         {/* Suggested sequence */}
-                         <div className="shrink-0 pb-2">
-                           <span className="text-[15px] font-[400] text-[#111827] block mb-[12px]">Suggested</span>
-                           <div className="flex gap-[12px]">
-                             {['#191528', '#FFFFFF', '#000000'].map(c => (
-                                <button 
-                                  key={c}
-                                  onClick={() => update({ page_text_color: c })}
-                                  className={`w-[44px] h-[44px] rounded-full border ${c === '#FFFFFF' ? 'border-[#d5d7d5]' : 'border-transparent'}`}
-                                  style={{ backgroundColor: c }}
-                                />
-                             ))}
-                           </div>
-                         </div>
-                      </div>
+                    <ColorPickerPopover
+                      value={profile.page_text_color}
+                      fallback="#0F071B"
+                      onChange={(color) => update({ page_text_color: color })}
+                    />
                   )}
                 </div>
 
@@ -1202,8 +1336,11 @@ export default function AppearanceManager() {
                    <div className="space-y-3 pt-2">
                      <h3 className="text-[14px] font-[600] text-[#111827]">Title font</h3>
                      <button
-                       onClick={() => setFontModalType('title')}
-                       className="w-[454px] flex items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] text-[15px] text-[#111827] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
+                       onClick={() => {
+                         setActiveColorPicker(null)
+                         setFontModalType('title')
+                       }}
+                       className="flex h-[48px] w-full items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 text-[15px] text-[#111827] outline-none transition-colors hover:border-[#b0b2aa] focus:border-black"
                      >
                        <span>{profile.title_font || 'Poppins'}</span>
                        <ChevronDown size={20} className="text-[#111827] pointer-events-none" />
@@ -1216,7 +1353,7 @@ export default function AppearanceManager() {
                   <h3 className="text-[14px] font-[600] text-[#111827]">Title color</h3>
                   <button
                     onClick={() => setActiveColorPicker(activeColorPicker === 'title' ? null : 'title')}
-                    className="flex w-[454px] items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 h-[48px] transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
+                    className="flex h-[48px] w-full items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
                   >
                     <span className="text-[15px] text-[#111827]">{profile.title_color?.toUpperCase() || '#0F071B'}</span>
                     <div className="relative h-[22px] w-[22px] overflow-hidden rounded-full shrink-0 shadow-sm border border-gray-200">
@@ -1225,51 +1362,11 @@ export default function AppearanceManager() {
                   </button>
 
                   {activeColorPicker === 'title' && (
-                      <div className="absolute left-0 top-[80px] z-50 w-[276px] h-[391px] bg-white rounded-[24px] shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-[16px] border border-[#e0e2d9] flex flex-col">
-                         {/* Gradient Area */}
-                         <div className="w-full h-[180px] rounded-[16px] relative overflow-hidden shrink-0 bg-gradient-to-tr from-black via-[#37197b] to-[#7421f6]">
-                           <div className="absolute inset-0 pointer-events-none opacity-50 bg-gradient-to-b from-white to-transparent" />
-                            {/* Dragger preview ring */}
-                            <div className="absolute top-[0px] left-[50px] w-[24px] h-[24px] rounded-full border-[3px] border-white shadow-sm pointer-events-none z-10" style={{ backgroundColor: '#D8CBE4', transform: 'translate(-50%, -50%)' }} />
-                         </div>
-
-                         {/* Hue Slider */}
-                         <div className="mt-[20px] h-[12px] w-full rounded-full relative shadow-[inset_0_0_2px_rgba(0,0,0,0.2)] shrink-0" style={{ background: 'linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00)' }}>
-                           <div className="absolute top-1/2 -translate-y-1/2 left-[70%] w-[18px] h-[18px] bg-white rounded-full shadow-md border border-gray-100 pointer-events-none" />
-                         </div>
-
-                         {/* Hex Input and Eyedropper */}
-                         <div className="flex items-center gap-[12px] mt-[24px] shrink-0">
-                           <div className="flex-1 h-[48px] rounded-[16px] border border-[#d5d7d5] flex items-center px-[16px]">
-                             <input 
-                               type="text" 
-                               value={profile.title_color?.toUpperCase() || '#0F071B'} 
-                               onChange={e => update({ title_color: e.target.value })}
-                               className="w-full text-[15px] font-[400] text-[#111827] outline-none bg-transparent"
-                             />
-                           </div>
-                           <button className="w-[56px] h-[48px] rounded-[24px] border border-[#d5d7d5] flex items-center justify-center flex-shrink-0 hover:bg-[#eaeaea] transition-colors">
-                             <Pipette size={20} strokeWidth={1.5} className="text-[#111827] transform -scale-x-100" />
-                           </button>
-                         </div>
-
-                         <div className="w-full h-[1px] bg-[#e0e2d9] mt-[20px] mb-[16px] shrink-0" />
-
-                         {/* Suggested sequence */}
-                         <div className="shrink-0 pb-2">
-                           <span className="text-[15px] font-[400] text-[#111827] block mb-[12px]">Suggested</span>
-                           <div className="flex gap-[12px]">
-                             {['#191528', '#FFFFFF', '#000000'].map(c => (
-                                <button 
-                                  key={c}
-                                  onClick={() => update({ title_color: c })}
-                                  className={`w-[44px] h-[44px] rounded-full border ${c === '#FFFFFF' ? 'border-[#d5d7d5]' : 'border-transparent'}`}
-                                  style={{ backgroundColor: c }}
-                                />
-                             ))}
-                           </div>
-                         </div>
-                      </div>
+                    <ColorPickerPopover
+                      value={profile.title_color}
+                      fallback="#0F071B"
+                      onChange={(color) => update({ title_color: color })}
+                    />
                   )}
                 </div>
 
@@ -1309,31 +1406,24 @@ export default function AppearanceManager() {
       </div>
 
       {/* 3. Preview Column */}
-      <div className="w-[435px] bg-white flex flex-col relative shrink-0">
-         {/* Mobile Phone Mockup */}
-         <div className="flex-1 overflow-y-auto flex items-center justify-center p-8 mt-16 bg-[#f9f9f8]">
-            <div className="w-[263px] shrink-0 aspect-[9/19] bg-white rounded-[40px] shadow-[0_8px_30px_rgb(0,0,0,0.12)] overflow-hidden relative ring-[6px] ring-black border-[4px] border-black">
-              {/* iPhone notch mock */}
-              <div className="absolute top-0 inset-x-0 h-6 flex justify-center z-50 pointer-events-none">
-                <div className="w-32 h-6 bg-black rounded-b-3xl"></div>
-              </div>
-              {/* Native Live Mobile Preview instead of iframe */}
-              <div className="w-full h-full absolute inset-0 rounded-[34px] p-2 bg-gray-50 overflow-hidden" style={{ borderRadius: 34 }}>
-                 <MobilePreview profile={profile} links={links} />
-              </div>
-            </div>
+      <div className="w-[460px] h-[803px] bg-[#f9f9f8] flex flex-col items-center justify-start relative shrink-0 pt-[56px]">
+         {/* Unsaved Changes Indicator (Moved to top) */}
+         <div className="flex justify-center items-center gap-2 mb-12">
+           <span className="text-[14px] font-[600] text-[#676b5f]">{saved ? 'Changes saved' : 'Unsaved changes'}</span>
          </div>
          
-         {/* Live Preview Refresh text */}
-         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/90 backdrop-blur px-4 py-2 rounded-full shadow-sm text-sm border border-gray-200">
-             <div className={`w-2 h-2 rounded-full ${saved ? 'bg-green-500' : 'bg-orange-400'}`} />
-             <span className="text-gray-600 font-medium">{saved ? 'All changes saved' : 'Unsaved changes'}</span>
+         {/* Mobile Phone Mockup (Frameless) */}
+         <div className="w-[254px] h-[551px] shrink-0 overflow-hidden relative rounded-[34px] shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
+            {/* Native Live Mobile Preview */}
+            <div className="w-full h-full absolute inset-0 custom-scrollbar overflow-x-hidden">
+               <MobilePreview profile={profile} links={links} />
+            </div>
          </div>
       </div>
       {/* Font Selection Modal */}
       {fontModalType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="w-[511px] h-[890px] bg-white rounded-[24px] shadow-2xl flex flex-col overflow-hidden relative border border-gray-100">
+          <div className="flex max-h-[calc(100vh-2rem)] w-[min(511px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[24px] border border-gray-100 bg-white shadow-2xl">
             <div className="flex items-center justify-center relative py-[24px] shrink-0">
               <h2 className="text-[16px] font-[600] text-[#111827]">
                 {fontModalType === 'page' ? 'Page font' : 'Title font'}
@@ -1346,15 +1436,18 @@ export default function AppearanceManager() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-6 pb-8 custom-scrollbar">
-              <div className="grid grid-cols-2 gap-[12px] justify-items-center">
+              <div className="grid grid-cols-1 gap-[12px] justify-items-center sm:grid-cols-2">
                  {(fontModalType === 'page' ? GOOGLE_FONTS : TITLE_FONTS).map((fontOption) => {
                    const { name: font, pro: isPro } = fontOption;
                    const isActive = profile[fontModalType === 'page' ? 'page_font' : 'title_font'] === font;
                    return (
                      <button
                        key={font}
-                       onClick={() => update({ [fontModalType === 'page' ? 'page_font' : 'title_font']: font })}
-                       className={`w-[232px] h-[52px] rounded-[16px] flex items-center justify-center relative justify-center text-[15px] font-[500] transition-colors ${isActive ? 'bg-[#f6f6f5] border-[1.5px] border-[#111827] text-[#111827]' : 'bg-[#f6f6f5] border-[1.5px] border-transparent text-[#676b5f] hover:bg-[#eaeaea]'}`}
+                       onClick={() => {
+                         update({ [fontModalType === 'page' ? 'page_font' : 'title_font']: font } as Partial<Profile>)
+                         setFontModalType(null)
+                       }}
+                       className={`relative flex h-[52px] w-full items-center justify-center rounded-[16px] border-[1.5px] text-[15px] font-[500] transition-colors ${isActive ? 'border-[#111827] bg-[#f6f6f5] text-[#111827]' : 'border-transparent bg-[#f6f6f5] text-[#676b5f] hover:bg-[#eaeaea]'}`}
                      >
                        {font}
                        {isPro && (

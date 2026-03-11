@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
+import ShareModal from '@/components/ShareModal'
 import * as si from 'simple-icons'
 import {
   NOISE_OVERLAY_STYLE,
@@ -8,6 +9,7 @@ import {
   needsHalftoneOverlay,
   parseBackgroundEffect,
 } from '@/lib/appearance'
+import { buildGoogleFontsStylesheetUrl } from '@/lib/fonts'
 
 type Profile = {
   display_name: string
@@ -28,6 +30,10 @@ type Profile = {
   title_color: string
   profile_layout: string
   footer_text: string
+  title_style?: string
+  title_size?: string
+  use_alt_title_font?: boolean
+  logo_url?: string | null
 }
 
 type LinkItem = {
@@ -62,6 +68,10 @@ const defaultProfile: Profile = {
   title_color: '#FFFFFF',
   profile_layout: 'classic',
   footer_text: 'Made by Maahir',
+  title_style: 'text',
+  title_size: 'small',
+  use_alt_title_font: false,
+  logo_url: null,
 }
 
 function getVideoThumbnail(imageUrl: string | undefined, videoUrl: string): string | null {
@@ -132,7 +142,7 @@ export default async function HomePage() {
       .select('*')
       .eq('id', 1)
       .single()
-    if (profileData) profile = profileData
+    if (profileData) profile = { ...defaultProfile, ...profileData }
   } catch {}
 
   try {
@@ -158,12 +168,17 @@ export default async function HomePage() {
         : {}
   const mediaFilterStyle = getMediaFilterStyle(profile.background_effect)
   const showHalftoneOverlay = needsHalftoneOverlay(profile.background_effect)
-
-  const googleFontsUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(profile.page_font)}:wght@400;500;600&family=${encodeURIComponent(profile.title_font)}:wght@400&display=swap`
+  const pageFontFamily = `'${profile.page_font || defaultProfile.page_font}', sans-serif`
+  const titleFontFamily = `'${profile.title_font || defaultProfile.title_font}', sans-serif`
+  const finalTitleFont = profile.use_alt_title_font ? titleFontFamily : pageFontFamily
+  const titleSize = profile.title_size === 'large'
+    ? 'clamp(2.35rem, 8vw, 2.85rem)'
+    : 'clamp(1.9rem, 6vw, 2.25rem)'
+  const googleFontsUrl = buildGoogleFontsStylesheetUrl(profile.page_font, profile.title_font)
 
   return (
     <>
-      <link rel="stylesheet" href={googleFontsUrl} />
+      {googleFontsUrl && <link rel="stylesheet" href={googleFontsUrl} />}
       <main className="min-h-screen w-full flex justify-center relative overflow-hidden">
         {/* Background Layer */}
         {profile.background_type === 'video' ? (
@@ -214,6 +229,8 @@ export default async function HomePage() {
 
         {/* Content */}
         <div className="relative z-10 w-full max-w-[480px] min-h-screen flex flex-col items-center px-4 py-12">
+          
+          <ShareModal profile={profile} />
 
           {/* Profile Header */}
           <header
@@ -224,8 +241,8 @@ export default async function HomePage() {
             <div
               className="mb-4 relative"
               style={{
-                width: 88,
-                height: 88,
+                width: 96,
+                height: 96,
                 borderRadius: '50%',
                 boxShadow: '0 0 0 3px rgba(255,255,255,0.25), 0 8px 24px rgba(0,0,0,0.4)',
                 overflow: 'hidden',
@@ -249,24 +266,38 @@ export default async function HomePage() {
             </div>
 
             {/* Name */}
-            <h1
-              className="mb-1 font-bold tracking-wide"
-              style={{
-                fontFamily: `'${profile.title_font}', sans-serif`,
-                color: profile.title_color,
-                fontSize: '2rem',
-                lineHeight: 1.1,
-                textShadow: '0 2px 12px rgba(0,0,0,0.3)',
-              }}
-            >
-              {profile.display_name}
-            </h1>
+            {profile.title_style === 'logo' && profile.logo_url ? (
+              <div className="mb-3 relative h-14 w-full max-w-[240px]">
+                <Image
+                  src={profile.logo_url}
+                  alt={profile.display_name}
+                  fill
+                  className="object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center w-[79px] h-[34px] mb-1">
+                <h1
+                  className="font-bold tracking-wide text-center"
+                  style={{
+                    fontFamily: finalTitleFont,
+                    color: profile.title_color,
+                    fontSize: titleSize,
+                    lineHeight: 1.05,
+                    textShadow: '0 2px 12px rgba(0,0,0,0.3)',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  {profile.display_name}
+                </h1>
+              </div>
+            )}
 
             {/* Tagline */}
             <p
               className="text-sm mb-5 text-center leading-relaxed"
               style={{
-                fontFamily: `'${profile.page_font}', sans-serif`,
+                fontFamily: pageFontFamily,
                 color: profile.page_text_color,
                 opacity: 0.8,
                 maxWidth: 260,
@@ -289,16 +320,10 @@ export default async function HomePage() {
                       title={link.title}
                       className="transition-all hover:scale-110 active:scale-95"
                       style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: 'rgba(255,255,255,0.13)',
-                        border: '1px solid rgba(255,255,255,0.2)',
-                        backdropFilter: 'blur(10px)',
-                        WebkitBackdropFilter: 'blur(10px)',
+                        padding: '4px',
                       }}
                     >
                       {icon ? (
@@ -306,12 +331,12 @@ export default async function HomePage() {
                           role="img"
                           viewBox="0 0 24 24"
                           xmlns="http://www.w3.org/2000/svg"
-                          style={{ width: 16, height: 16, fill: profile.page_text_color }}
+                          style={{ width: 33, height: 33, fill: profile.page_text_color }}
                         >
                           <path d={icon.path} />
                         </svg>
                       ) : (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: profile.page_text_color }}>
+                        <span style={{ fontSize: 22, fontWeight: 700, color: profile.page_text_color }}>
                           {link.title.charAt(0).toUpperCase()}
                         </span>
                       )}
@@ -335,7 +360,7 @@ export default async function HomePage() {
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`flex items-center w-full min-h-[56px] px-4 my-1 transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass}`}
+                    className={`flex items-center w-full max-w-[360px] h-[64px] px-4 my-1 transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`}
                     style={btnStyle}
                   >
                     <div className="w-6 h-6 flex-shrink-0 flex items-center justify-center">
@@ -355,7 +380,7 @@ export default async function HomePage() {
                     </div>
                     <span
                       className="flex-1 text-center font-medium pr-6"
-                      style={{ fontFamily: `'${profile.page_font}', sans-serif` }}
+                      style={{ fontFamily: pageFontFamily }}
                     >
                       {link.title}
                     </span>
@@ -368,14 +393,14 @@ export default async function HomePage() {
                   <div key={link.id} className="w-full text-center py-4 my-2">
                     <h3 
                       className="text-lg font-bold mb-1"
-                      style={{ fontFamily: `'${profile.title_font}', sans-serif`, color: profile.page_text_color }}
+                      style={{ fontFamily: finalTitleFont, color: profile.title_color }}
                     >
                       {link.title}
                     </h3>
                     {link.description && (
                       <p 
                         className="text-sm opacity-80"
-                        style={{ fontFamily: `'${profile.page_font}', sans-serif`, color: profile.page_text_color }}
+                        style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}
                       >
                         {link.description}
                       </p>
@@ -391,20 +416,20 @@ export default async function HomePage() {
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`w-full overflow-hidden my-1 transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass}`}
+                    className={`w-full max-w-[360px] h-[64px] flex items-center overflow-hidden my-1 transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`}
                     style={btnStyle}
                   >
                     {link.image_url && (
-                      <div className="relative w-full" style={{ aspectRatio: '3/2' }}>
+                      <div className="relative h-full shrink-0" style={{ aspectRatio: '1/1' }}>
                         <Image src={link.image_url} alt={link.title} fill className="object-cover" />
                       </div>
                     )}
-                    <div className="p-4 flex items-center justify-between">
+                    <div className="flex-1 px-4 flex items-center justify-between truncate">
                       <div className="flex-1">
                         <h3
                           className="font-semibold text-base"
                           style={{
-                            fontFamily: `'${profile.page_font}', sans-serif`,
+                            fontFamily: pageFontFamily,
                             color: profile.page_text_color,
                           }}
                         >
@@ -413,8 +438,8 @@ export default async function HomePage() {
                         {link.description && link.type === 'project' && (
                           <p
                             className="text-sm mt-1 opacity-75"
-                            style={{
-                              fontFamily: `'${profile.page_font}', sans-serif`,
+                              style={{
+                              fontFamily: pageFontFamily,
                               color: profile.page_text_color,
                             }}
                           >
@@ -446,10 +471,10 @@ export default async function HomePage() {
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`w-full overflow-hidden my-1 transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass}`}
+                    className={`w-full max-w-[360px] h-[64px] flex items-center overflow-hidden my-1 transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`}
                     style={btnStyle}
                   >
-                    <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
+                    <div className="relative h-full shrink-0" style={{ aspectRatio: '1/1' }}>
                       {thumbnail && (
                         <Image src={thumbnail} alt={link.title} fill className="object-cover" />
                       )}
@@ -462,11 +487,11 @@ export default async function HomePage() {
                         </div>
                       </div>
                     </div>
-                    <div className="p-4">
+                    <div className="flex-1 px-4 truncate">
                       <h3
                         className="font-semibold text-base"
                         style={{
-                          fontFamily: `'${profile.page_font}', sans-serif`,
+                          fontFamily: pageFontFamily,
                           color: profile.page_text_color,
                         }}
                       >
@@ -480,19 +505,6 @@ export default async function HomePage() {
               return null
             })}
           </section>
-
-          {/* Footer */}
-          <footer className="mt-auto pt-12 pb-6 w-full text-center animate-fade-in-up" style={{ animationDelay: '0.25s' }}>
-            <p
-              className="text-xs opacity-50"
-              style={{
-                fontFamily: `'${profile.page_font}', sans-serif`,
-                color: profile.page_text_color,
-              }}
-            >
-              {profile.footer_text}
-            </p>
-          </footer>
         </div>
       </main>
     </>

@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     .insert([
       {
         title: body.title,
-        url: body.url,
+        url: body.url || '',
         type: body.type || 'social',
         icon: body.icon,
         image_url: body.image_url,
