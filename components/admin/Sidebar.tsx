@@ -104,7 +104,7 @@ export default function Sidebar() {
                 ))}
               </div>
               <div className="px-4 py-2.5 bg-gray-50 border-t border-gray-100">
-                <p className="text-[11px] text-gray-400 text-center">You're all caught up 🎉</p>
+                <p className="text-[11px] text-gray-400 text-center">You&apos;re all caught up 🎉</p>
               </div>
             </div>
           )}

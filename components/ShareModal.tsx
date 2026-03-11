@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import * as si from 'simple-icons'
 import { Export, X, Link as LinkIcon } from '@phosphor-icons/react'
+import { getPublicProfileUrl, getProfileHandle } from '@/lib/site'
 
 type Profile = {
   display_name: string
@@ -13,18 +14,41 @@ export default function ShareModal({ profile }: { profile: Profile }) {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [showCopiedToast, setShowCopiedToast] = useState(false);
 
+  const getProfileUrl = () => {
+    return getPublicProfileUrl(profile.display_name)
+  }
+
   const handleCopyLink = () => {
-    // In a real app we'd copy the exact domain+username
-    const domain = typeof window !== 'undefined' ? window.location.origin : 'https://linktr.ee';
-    navigator.clipboard.writeText(`${domain}/${profile.display_name.toLowerCase().replace(/\s+/g, '')}`);
+    navigator.clipboard.writeText(getProfileUrl());
     setShowCopiedToast(true);
     setTimeout(() => setShowCopiedToast(false), 2000);
+  };
+
+  const handleShareX = () => {
+    const text = encodeURIComponent(`Check out ${profile.display_name}'s Linktree`);
+    const url = encodeURIComponent(getProfileUrl());
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleShareFacebook = () => {
+    const url = encodeURIComponent(getProfileUrl());
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${url}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(`Check out ${profile.display_name}'s Linktree: ${getProfileUrl()}`);
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleShareLinkedIn = () => {
+    const url = encodeURIComponent(getProfileUrl());
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
     <>
       {/* Share Button (Top Right) */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top-4 right-4 z-50" data-share-btn>
         <button 
           onClick={() => setIsShareModalOpen(true)}
           className="w-12 h-12 shadow-[0_4px_12px_rgba(0,0,0,0.15)] rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center hover:bg-white/30 transition-transform active:scale-95 border border-white/20"
@@ -60,7 +84,7 @@ export default function ShareModal({ profile }: { profile: Profile }) {
 
           <div className="w-full h-[80px] bg-[#F6F6F5] rounded-full px-4 flex items-center justify-center mb-6 border border-gray-200/60 shadow-sm">
              <span className="text-[15px] font-bold text-gray-900 truncate max-w-full">
-               {profile.display_name}
+               maahir03.me/{getProfileHandle(profile.display_name)}
              </span>
           </div>
 
@@ -85,7 +109,7 @@ export default function ShareModal({ profile }: { profile: Profile }) {
 
              {/* X */}
              <div className="flex flex-col items-center gap-2">
-                <button className="w-[52px] h-[52px] rounded-full bg-black border border-gray-800 flex items-center justify-center text-white hover:bg-gray-900 transition-colors shadow-sm active:scale-95">
+                <button onClick={handleShareX} className="w-[52px] h-[52px] rounded-full bg-black border border-gray-800 flex items-center justify-center text-white hover:bg-gray-900 transition-colors shadow-sm active:scale-95">
                    <svg viewBox="0 0 24 24" className="w-[22px] h-[22px] fill-current">
                      <path d={si.siX.path} />
                    </svg>
@@ -95,7 +119,7 @@ export default function ShareModal({ profile }: { profile: Profile }) {
 
              {/* Facebook */}
              <div className="flex flex-col items-center gap-2">
-                <button className="w-[52px] h-[52px] rounded-full bg-[#1877F2] border border-[#166FE5] flex items-center justify-center text-white hover:brightness-95 transition-colors shadow-sm active:scale-95">
+                <button onClick={handleShareFacebook} className="w-[52px] h-[52px] rounded-full bg-[#1877F2] border border-[#166FE5] flex items-center justify-center text-white hover:brightness-95 transition-colors shadow-sm active:scale-95">
                    <svg viewBox="0 0 24 24" className="w-[26px] h-[26px] fill-current">
                      <path d={si.siFacebook.path} />
                    </svg>
@@ -105,7 +129,7 @@ export default function ShareModal({ profile }: { profile: Profile }) {
 
              {/* WhatsApp */}
              <div className="flex flex-col items-center gap-2">
-                <button className="w-[52px] h-[52px] rounded-full bg-[#25D366] border border-[#22BF5B] flex items-center justify-center text-white hover:brightness-95 transition-colors shadow-sm active:scale-95">
+                <button onClick={handleShareWhatsApp} className="w-[52px] h-[52px] rounded-full bg-[#25D366] border border-[#22BF5B] flex items-center justify-center text-white hover:brightness-95 transition-colors shadow-sm active:scale-95">
                    <svg viewBox="0 0 24 24" className="w-[26px] h-[26px] fill-current">
                      <path d={si.siWhatsapp.path} />
                    </svg>
@@ -115,7 +139,7 @@ export default function ShareModal({ profile }: { profile: Profile }) {
 
              {/* LinkedIn */}
              <div className="flex flex-col items-center gap-2">
-                <button className="w-[52px] h-[52px] rounded-full bg-[#0A66C2] border border-[#095BB0] flex items-center justify-center text-white hover:brightness-95 transition-colors shadow-sm active:scale-95">
+                <button onClick={handleShareLinkedIn} className="w-[52px] h-[52px] rounded-full bg-[#0A66C2] border border-[#095BB0] flex items-center justify-center text-white hover:brightness-95 transition-colors shadow-sm active:scale-95">
                    <svg viewBox="0 0 24 24" className="w-[24px] h-[24px] fill-current">
                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
                    </svg>

@@ -1,7 +1,8 @@
 'use client'
 
 import React from 'react'
-import * as si from 'simple-icons'
+import ProfilePageContent from '@/components/ProfilePageContent'
+import type { CollectionLayout, CollectionItem } from '@/components/ProfilePageContent'
 import {
   NOISE_OVERLAY_STYLE,
   getMediaFilterStyle,
@@ -23,11 +24,13 @@ type Profile = {
   button_corners: string
   button_color: string
   button_text_color: string
+  button_shadow?: string
   page_font: string
   title_font: string
   page_text_color: string
   title_color: string
   profile_layout: string
+  collection_layout?: CollectionLayout
   title_style?: string
   title_size?: string
   use_alt_title_font?: boolean
@@ -46,7 +49,7 @@ type LinkItem = {
   price?: string
 }
 
-export default function MobilePreview({ profile, links }: { profile: Profile, links: LinkItem[] }) {
+export default function MobilePreview({ profile, links, collections, linkAssignments, hideShare = false }: { profile: Profile, links: LinkItem[], collections?: CollectionItem[], linkAssignments?: Record<string, string>, hideShare?: boolean }) {
   // We'll duplicate the logic from app/page.tsx here but make it react to profile props
   function getVideoThumbnail(imageUrl: string | undefined, videoUrl: string): string | null {
     const ytId = (url: string) => url?.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s?]+)/)?.[1]
@@ -60,28 +63,32 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
     return null
   }
 
-  function getSimpleIcon(slug: string) {
-    if (!slug) return null
-    const normalized = slug.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const key = `si${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`
-    return (si as Record<string, { path: string; hex: string } | undefined>)[key] ?? null
-  }
-
   function getButtonCornerClass(corners: string) {
     switch (corners) {
       case 'square': return 'rounded-none'
       case 'round': return 'rounded-lg'
-      case 'full': return 'rounded-full'
+      case 'full': return 'rounded-[28px]'
       default: return 'rounded-[16px]'
     }
   }
 
+function getButtonShadow(shadow?: string): string {
+    switch (shadow) {
+      case 'soft':   return '0 4px 14px rgba(0,0,0,0.13)'
+      case 'strong': return '0 8px 24px rgba(0,0,0,0.26)'
+      case 'hard':   return '4px 4px 0px rgba(0,0,0,0.88)'
+      default:       return 'none'
+    }
+  }
+
   function getButtonStyle(profile: Profile): React.CSSProperties {
+    const boxShadow = getButtonShadow(profile.button_shadow)
     if (profile.button_style === 'solid') {
       return {
         backgroundColor: profile.button_color,
         color: profile.button_text_color,
         border: '1px solid transparent',
+        boxShadow,
       }
     }
     if (profile.button_style === 'outline') {
@@ -89,22 +96,23 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
         backgroundColor: 'transparent',
         color: profile.button_text_color,
         border: `2px solid ${profile.button_text_color}`,
+        boxShadow,
       }
     }
     return {
-      backgroundColor: 'rgba(255, 255, 255, 0.25)',
+      backgroundColor: 'rgba(255, 248, 250, 0.42)',
       color: profile.button_text_color,
-      border: '1px solid rgba(255,255,255,0.2)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      border: '1px solid rgba(255,255,255,0.34)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      boxShadow: boxShadow === 'none' ? '0 4px 14px rgba(0,0,0,0.10)' : boxShadow,
     }
   }
 
   const btnStyle = getButtonStyle(profile)
   const cornerClass = getButtonCornerClass(profile.button_corners)
-  const tintOpacity = (profile.background_tint ?? 40) / 100
-  const socialLinks = links.filter(l => l.type === 'social')
+  const baseTintOpacity = (profile.background_tint ?? 40) / 100
+  const tintOpacity = profile.background_type === 'image' ? Math.min(baseTintOpacity, 0.14) : baseTintOpacity
   const backgroundEffect = parseBackgroundEffect(profile.background_effect)
   const staticBackgroundStyle = getStaticBackgroundStyle(profile.background_type, profile.background_value)
   const backgroundAnimationStyle =
@@ -122,11 +130,15 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
   const pageFontFamily = `'${profile.page_font}', sans-serif`
 
   // Size derivation based on new settings (defaulting for backwards compat if empty)
-  const titleSizeVal = profile.title_size === 'large' ? '2.2rem' : '1.85rem'
-  const finalTitleFont = profile.use_alt_title_font ? titleFontFamily : pageFontFamily
+  const titleSizeVal = profile.title_size === 'large' ? '36px' : '24px'
+  const finalTitleFont = titleFontFamily
 
   return (
-    <div className="w-full h-full relative overflow-y-auto bg-gray-50 hide-scrollbar" style={{ borderRadius: 'inherit' }}>
+    <div className="w-full h-full relative overflow-y-auto bg-[#7b4a4d]" style={{ borderRadius: 'inherit' }}>
+       {/* Suppress floating share button when rendered inside admin preview */}
+       {hideShare && (
+         <style>{`[data-share-btn] { display: none !important; }`}</style>
+       )}
        {/* Background */}
        {profile.background_type === 'video' ? (
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
@@ -157,7 +169,7 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
             }}
           />
        )}
-       
+
        {/* Tint */}
        {tintOpacity > 0 && (
           <div className="absolute inset-0 z-[2] pointer-events-none" style={{ backgroundColor: `rgba(0,0,0,${tintOpacity})` }} />
@@ -168,190 +180,24 @@ export default function MobilePreview({ profile, links }: { profile: Profile, li
        )}
 
        {/* Content */}
-       <div className="relative z-10 w-full min-h-full flex flex-col items-center px-4 py-8">
-          
-          <header className="flex flex-col items-center mb-6 w-full gap-4">
-             {profile.profile_layout === 'hero' ? (
-                // Hero Layout prototype
-                <div className="w-full flex flex-col items-center">
-                   <div className="w-[120px] h-[120px] rounded-[32px] overflow-hidden bg-white/10 shadow-lg border border-white/20 mb-4">
-                      {profile.avatar_url ? (
-                         <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                      ) : (
-                         <div className="w-full h-full flex items-center justify-center text-white/50">
-                            <span className="text-3xl font-bold">{profile.display_name?.charAt(0) || 'U'}</span>
-                         </div>
-                      )}
-                   </div>
-                </div>
-             ) : (
-                // Classic Layout
-                <div
-                  className="relative"
-                  style={{
-                    width: 96,
-                    height: 96,
-                    borderRadius: '50%',
-                    boxShadow: '0 0 0 2px rgba(255,255,255,0.25)',
-                    overflow: 'hidden',
-                    background: 'rgba(255,255,255,0.1)',
-                  }}
-                >
-                  {profile.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt={profile.display_name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-xl font-bold" style={{ color: profile.page_text_color }}>
-                        {profile.display_name?.charAt(0) || 'U'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-             )}
-
-             <div className="flex flex-col items-center text-center">
-               {profile.title_style === 'logo' && profile.logo_url ? (
-                 <img src={profile.logo_url} alt="Logo" className="h-10 object-contain mb-2" />
-               ) : (
-                 <div className="flex items-center justify-center w-[79px] h-[34px] mb-1">
-                   <h1
-                     className="font-bold tracking-wide text-center"
-                     style={{
-                       fontFamily: finalTitleFont,
-                       color: profile.title_color,
-                       fontSize: titleSizeVal,
-                       lineHeight: 1.1,
-                       textShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                       whiteSpace: 'nowrap'
-                     }}
-                   >
-                     {profile.display_name}
-                   </h1>
-                 </div>
-               )}
-
-               <p
-                 className="text-[13px] leading-relaxed max-w-[90%]"
-                 style={{
-                   fontFamily: pageFontFamily,
-                   color: profile.page_text_color,
-                   opacity: 0.8,
-                 }}
-               >
-                 {profile.tagline}
-               </p>
-             </div>
-
-             {/* Socials */}
-             {socialLinks.length > 0 && (
-              <div className="flex gap-2 flex-wrap justify-center mt-2">
-                {socialLinks.map((link) => {
-                  const icon = link.icon ? getSimpleIcon(link.icon) : null
-                  return (
-                    <div
-                      key={link.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      {icon ? (
-                        <svg viewBox="0 0 24 24" style={{ width: 33, height: 33, fill: profile.page_text_color }}>
-                          <path d={icon.path} />
-                        </svg>
-                      ) : (
-                         <span style={{ fontSize: 22, fontWeight: 700, color: profile.page_text_color }}>
-                           {link.title.charAt(0).toUpperCase()}
-                         </span>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </header>
-
-          <section className="flex flex-col gap-2.5 w-full">
-            {links.map((link) => {
-              const icon = link.icon ? getSimpleIcon(link.icon) : null
-              const isBasicLink = ['social', 'standard', 'contact', 'document', 'event'].includes(link.type)
-
-              if (isBasicLink) {
-                return (
-                  <div key={link.id} className={`flex items-center w-full max-w-[360px] h-[64px] px-3 transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`} style={btnStyle}>
-                     <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
-                      {icon ? (
-                        <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor"><path d={icon.path} /></svg>
-                      ) : (
-                        <div className="w-4 h-4 rounded-full bg-white/20" />
-                      )}
-                    </div>
-                    <span className="flex-1 text-center font-medium text-sm pr-5" style={{ fontFamily: pageFontFamily }}>
-                      {link.title}
-                    </span>
-                  </div>
-                )
-              }
-
-              if (link.type === 'project' || link.type === 'commerce') {
-                return (
-                  <div key={link.id} className={`w-full max-w-[360px] h-[64px] flex items-center overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`} style={btnStyle}>
-                    {link.image_url && (
-                       <div className="relative h-full shrink-0 aspect-[1/1]">
-                         <img src={link.image_url} alt="" className="w-full h-full object-cover" />
-                       </div>
-                    )}
-                    <div className="flex-1 px-3 flex items-center justify-between truncate">
-                       <div>
-                         <h3 className="font-semibold text-sm truncate" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.title}</h3>
-                       </div>
-                       {link.price && link.type === 'commerce' && (
-                         <span className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap ml-3" style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: profile.page_text_color }}>{link.price}</span>
-                       )}
-                    </div>
-                  </div>
-                )
-              }
-
-              if (link.type === 'video') {
-                 const thumbnail = getVideoThumbnail(link.image_url, link.url)
-                 return (
-                   <div key={link.id} className={`w-full max-w-[360px] h-[64px] flex items-center overflow-hidden transition-all hover:scale-[1.02] active:scale-[0.98] ${cornerClass} mx-auto`} style={btnStyle}>
-                      <div className="relative h-full shrink-0 aspect-[1/1]">
-                         {thumbnail && <img src={thumbnail} className="w-full h-full object-cover" alt="" />}
-                         <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                           <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
-                             <svg className="w-4 h-4 text-gray-900 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                           </div>
-                         </div>
-                      </div>
-                      <div className="flex-1 px-3 truncate">
-                         <h3 className="font-semibold text-sm truncate" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.title}</h3>
-                      </div>
-                   </div>
-                 )
-              }
-
-              if (link.type === 'text') {
-                return (
-                  <div key={link.id} className="w-full text-center py-2 my-1">
-                    <h3 className="text-[15px] font-bold" style={{ fontFamily: finalTitleFont, color: profile.title_color }}>{link.title}</h3>
-                    {link.description && (
-                      <p className="text-xs opacity-80 mt-1" style={{ fontFamily: pageFontFamily, color: profile.page_text_color }}>{link.description}</p>
-                    )}
-                  </div>
-                )
-              }
-
-              return null
-            })}
-          </section>
-       </div>
+       <ProfilePageContent
+        profile={profile}
+        links={links.map((link) => ({
+          ...link,
+          image_url: link.type === 'video' ? getVideoThumbnail(link.image_url, link.url) || link.image_url : link.image_url,
+        }))}
+        pageFontFamily={pageFontFamily}
+        finalTitleFont={finalTitleFont}
+        titleSize={titleSizeVal}
+        buttonStyle={btnStyle}
+        cornerClass={cornerClass}
+        collectionLayout={profile.collection_layout}
+        collections={collections}
+        linkAssignments={linkAssignments}
+        interactive={false}
+        showSparkButton={false}
+        showShareButton={!hideShare}
+      />
     </div>
   )
 }

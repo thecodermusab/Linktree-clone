@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { checkAdmin } from '@/lib/auth'
+import { readProfileOverrides, writeProfileOverrides } from '@/lib/profile-overrides'
 
 const DEFAULT_PROFILE = {
   id: 1,
@@ -16,11 +17,13 @@ const DEFAULT_PROFILE = {
   button_corners: 'rounder',
   button_color: '#ffffff20',
   button_text_color: '#ffffff',
+  button_shadow: 'none',
   page_font: 'Red Hat Display',
   title_font: 'Gasoek One',
   page_text_color: '#FFFFFF',
   title_color: '#FFFFFF',
   profile_layout: 'classic',
+  collection_layout: 'stack',
   footer_text: 'Made by Maahir',
   title_style: 'text',
   title_size: 'small',
@@ -41,11 +44,13 @@ const PROFILE_UPDATE_FIELDS = [
   'button_corners',
   'button_color',
   'button_text_color',
+  'button_shadow',
   'page_font',
   'title_font',
   'page_text_color',
   'title_color',
   'profile_layout',
+  'collection_layout',
   'footer_text',
   'title_style',
   'title_size',
@@ -71,8 +76,15 @@ async function updateProfileWithFallback(
   supabase: ReturnType<typeof createAdminClient>
 ) {
   const nextPayload = { ...payload, updated_at: new Date().toISOString() }
+  const removedColumns: string[] = []
 
   while (true) {
+    // If all user-supplied fields have been stripped, skip the DB update entirely
+    const userFields = Object.keys(nextPayload).filter(k => k !== 'updated_at')
+    if (userFields.length === 0) {
+      return { data: null, removedColumns }
+    }
+
     const { data, error } = await supabase
       .from('profile')
       .update(nextPayload)
@@ -81,7 +93,7 @@ async function updateProfileWithFallback(
       .single()
 
     if (!error) {
-      return { data, removedColumns: [] as string[] }
+      return { data, removedColumns }
     }
 
     const unsupportedColumn = getUnsupportedColumn(error.message)
@@ -90,15 +102,13 @@ async function updateProfileWithFallback(
     }
 
     delete nextPayload[unsupportedColumn as keyof typeof nextPayload]
-
-    if (Object.keys(nextPayload).length === 1 && 'updated_at' in nextPayload) {
-      throw error
-    }
+    removedColumns.push(unsupportedColumn)
   }
 }
 
 export async function GET() {
   const supabase = await createClient()
+  const overrides = await readProfileOverrides<ProfileUpdatePayload>()
   const { data, error } = await supabase
     .from('profile')
     .select('*')
@@ -108,11 +118,11 @@ export async function GET() {
   if (error) {
     // Table doesn't exist or row missing — return defaults so the app doesn't crash
     console.error('Profile fetch error:', error.message)
-    return NextResponse.json(DEFAULT_PROFILE)
+    return NextResponse.json({ ...DEFAULT_PROFILE, ...overrides })
   }
 
   // Merge defaults so any null columns get a fallback value
-  return NextResponse.json({ ...DEFAULT_PROFILE, ...data })
+  return NextResponse.json({ ...DEFAULT_PROFILE, ...data, ...overrides })
 }
 
 export async function PATCH(request: Request) {
@@ -130,8 +140,29 @@ export async function PATCH(request: Request) {
   ) as ProfileUpdatePayload
 
   try {
-    const { data } = await updateProfileWithFallback(payload, supabase)
-    return NextResponse.json({ ...DEFAULT_PROFILE, ...data })
+    const { data, removedColumns } = await updateProfileWithFallback(payload, supabase)
+
+    if (removedColumns.length > 0) {
+      const fallbackPatch = Object.fromEntries(
+        removedColumns
+          .filter((column): column is ProfileUpdateField => PROFILE_UPDATE_FIELDS.includes(column as ProfileUpdateField))
+          .map((column) => [column, payload[column as ProfileUpdateField]])
+      ) as ProfileUpdatePayload
+
+      if (Object.keys(fallbackPatch).length > 0) {
+        await writeProfileOverrides<ProfileUpdatePayload>(fallbackPatch)
+      }
+    }
+
+    // If data is null (all fields were unsupported by DB), fetch current DB state
+    let returnData = data
+    if (!returnData) {
+      const { data: current } = await supabase.from('profile').select('*').eq('id', 1).single()
+      returnData = current
+    }
+
+    const overrides = await readProfileOverrides<ProfileUpdatePayload>()
+    return NextResponse.json({ ...DEFAULT_PROFILE, ...(returnData || {}), ...overrides })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Profile update error:', message)

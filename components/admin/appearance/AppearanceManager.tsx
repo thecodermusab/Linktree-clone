@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Loader2, Upload, ChevronDown, Zap, Edit2, UserCircle2, Maximize, Image as ImageIcon2, Paintbrush, PlaySquare, X, Pipette } from 'lucide-react'
-import { User as PhUser, Layout as PhLayout, StackSimple as PhStackSimple, TextT as PhTextT, Rows as PhRows, Palette as PhPalette, Asterisk as PhAsterisk } from '@phosphor-icons/react'
+import { User as PhUser, Layout as PhLayout, StackSimple as PhStackSimple, TextT as PhTextT, Rows as PhRows, Palette as PhPalette } from '@phosphor-icons/react'
 import MobilePreview from './MobilePreview'
+import type { CollectionItem } from '@/components/ProfilePageContent'
 import {
   GRADIENT_PRESET_VALUES,
   type BackgroundFilter,
@@ -236,13 +237,15 @@ export default function AppearanceManager() {
   const [avatarUploading, setAvatarUploading] = useState(false)
   const [activeSection, setActiveSection] = useState<Section>('Header')
   const [fontModalType, setFontModalType] = useState<'page' | 'title' | null>(null)
-  const [activeColorPicker, setActiveColorPicker] = useState<'page_text' | 'title' | 'button_color' | 'button_text_color' | null>(null)
+  const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null)
   const backgroundImageInputRef = useRef<HTMLInputElement>(null)
   const backgroundVideoInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const taglineRef = useRef<HTMLTextAreaElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [links, setLinks] = useState<any[]>([])
+  const [collections, setCollections] = useState<CollectionItem[]>([])
+  const [linkAssignments, setLinkAssignments] = useState<Record<string, string>>({})
   const [logoUploading, setLogoUploading] = useState(false)
   const logoInputRef = useRef<HTMLInputElement>(null)
   const hasLoadedProfileRef = useRef(false)
@@ -280,6 +283,15 @@ export default function AppearanceManager() {
       .then(data => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setLinks(data.filter((l: any) => l.is_visible))
+      })
+      .catch(console.error)
+
+    // Fetch collections for live preview
+    fetch('/api/collections')
+      .then(r => r.json())
+      .then(data => {
+        setCollections(data.collections || [])
+        setLinkAssignments(data.linkAssignments || {})
       })
       .catch(console.error)
   }, [])
@@ -871,21 +883,38 @@ export default function AppearanceManager() {
 
             {/* --- Colors Section --- */}
             {activeSection === 'Colors' && (
-               <div className="space-y-8">
-                <div>
-                  <h3 className="text-[14px] font-bold text-gray-900 mb-6 tracking-wide">Background Color</h3>
-                  <div className="bg-white border rounded-[24px] p-6 shadow-sm border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[15px] font-medium text-gray-900">Color</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-400 uppercase">{profile.background_value}</span>
-                        <div className="w-10 h-10 rounded-full border border-gray-200 overflow-hidden relative cursor-pointer shadow-sm">
-                          <input type="color" value={profile.background_value?.startsWith('#') ? profile.background_value : '#ffffff'} onChange={e => update({ background_value: e.target.value, background_type: 'color' })} className="absolute inset-[-10px] w-20 h-20 cursor-pointer" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+               <div className="space-y-6">
+                 {[
+                   { id: 'bg_color', label: 'Background', value: profile.background_value, fallback: '#ECEEF1', onChange: (c: string) => update({ background_value: c, background_type: 'color' }) },
+                   { id: 'btn_color', label: 'Buttons', value: profile.button_color, fallback: '#FFFFFF', onChange: (c: string) => update({ button_color: c }) },
+                   { id: 'btn_text_color', label: 'Button text', value: profile.button_text_color, fallback: '#000000', onChange: (c: string) => update({ button_text_color: c }) },
+                   { id: 'pg_text_color', label: 'Page text', value: profile.page_text_color, fallback: '#000000', onChange: (c: string) => update({ page_text_color: c }) },
+                   { id: 'ttl_text_color', label: 'Title text', value: profile.title_color, fallback: '#000000', onChange: (c: string) => update({ title_color: c }) },
+                 ].map(item => {
+                   const hexValue = item.value?.startsWith('#') ? item.value.toUpperCase() : item.fallback.toUpperCase();
+                   
+                   return (
+                     <div key={item.id} className="space-y-3 relative">
+                       <h3 className="text-[15px] font-[500] text-[#111827]">{item.label}</h3>
+                       <button
+                         onClick={() => setActiveColorPicker(activeColorPicker === item.id ? null : item.id)}
+                         className="flex h-[56px] w-full items-center justify-between rounded-[12px] border border-[#d5d7d5] bg-white px-4 transition-colors hover:border-[#b0b2aa] focus:border-black outline-none"
+                       >
+                         <span className="text-[15px] font-[400] text-[#111827]">{hexValue}</span>
+                         <div className="relative w-[28px] h-[28px] rounded-full overflow-hidden shrink-0 border border-gray-300">
+                           <div className="w-full h-full pointer-events-none" style={{ backgroundColor: hexValue }} />
+                         </div>
+                       </button>
+                       {activeColorPicker === item.id && (
+                         <ColorPickerPopover
+                           value={hexValue}
+                           fallback={item.fallback}
+                           onChange={item.onChange}
+                         />
+                       )}
+                     </div>
+                   );
+                 })}
                </div>
             )}
 
@@ -894,7 +923,7 @@ export default function AppearanceManager() {
               <div className="space-y-6">
                 {/* Tabs */}
                 <div className="flex border-b border-gray-200">
-                  <button className="px-1 py-4 text-[14px] font-semibold text-gray-900 border-b-2 border-gray-900 mr-6">Customizable</button>
+                  <button className="px-1 py-4 text-[14px] font-semibold text-gray-900 border-b-2 border-gray-900 mr-6 hover:opacity-80 transition-opacity">Customizable</button>
                   <button className="px-1 py-4 text-[14px] font-medium text-gray-500 hover:text-gray-900 transition-colors">Curated</button>
                 </div>
 
@@ -1398,7 +1427,7 @@ export default function AppearanceManager() {
             {!['Header', 'Theme', 'Text', 'Buttons', 'Colors', 'Wallpaper'].includes(activeSection) && (
               <div className="p-12 border-2 border-dashed border-gray-200 rounded-[24px] text-center bg-gray-50">
                 <p className="text-gray-500 font-medium">Configure {activeSection} settings here</p>
-                <button onClick={() => setActiveSection('Header')} className="mt-4 text-[var(--color-brand)] font-semibold text-sm">Back to Header</button>
+                <button onClick={() => setActiveSection('Header')} className="mt-4 text-[var(--color-brand)] font-semibold text-sm hover:opacity-70 transition-opacity">Back to Header</button>
               </div>
             )}
           </div>
@@ -1406,17 +1435,30 @@ export default function AppearanceManager() {
       </div>
 
       {/* 3. Preview Column */}
-      <div className="w-[460px] h-[803px] bg-[#f9f9f8] flex flex-col items-center justify-start relative shrink-0 pt-[56px]">
-         {/* Unsaved Changes Indicator (Moved to top) */}
-         <div className="flex justify-center items-center gap-2 mb-12">
+      <div className="w-[460px] h-[803px] bg-[#f9f9f8] flex flex-col items-center justify-center relative shrink-0 gap-5">
+         {/* Saved indicator */}
+         <div className="flex justify-center items-center gap-2">
            <span className="text-[14px] font-[600] text-[#676b5f]">{saved ? 'Changes saved' : 'Unsaved changes'}</span>
          </div>
          
-         {/* Mobile Phone Mockup (Frameless) */}
-         <div className="w-[254px] h-[551px] shrink-0 overflow-hidden relative rounded-[34px] shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
-            {/* Native Live Mobile Preview */}
-            <div className="w-full h-full absolute inset-0 custom-scrollbar overflow-x-hidden">
-               <MobilePreview profile={profile} links={links} />
+         {/* Desktop card preview — matches the real 583×884 card exactly, scaled to fit */}
+         <div className="w-[440px] h-[667px] shrink-0 overflow-hidden relative rounded-[28px] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+            {/* Render at real card size (583×884) then scale down. Scale = 440/583 ≈ 0.7547 */}
+            <div
+               style={{
+                  width: 583,
+                  height: 884,
+                  transform: 'scale(0.7547)',
+                  transformOrigin: 'top left',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+               }}
+               className="custom-scrollbar"
+            >
+               <MobilePreview profile={profile} links={links} collections={collections} linkAssignments={linkAssignments} hideShare />
             </div>
          </div>
       </div>

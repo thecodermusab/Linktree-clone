@@ -1,0 +1,16 @@
+{
+  "collections": [
+    {
+      "id": "7058526f-00e3-48d3-845a-b1de1aea75db",
+      "title": "Link",
+      "layout": "carousel",
+      "is_visible": true,
+      "sort_order": 0
+    }
+  ],
+  "linkAssignments": {
+    "12": "7058526f-00e3-48d3-845a-b1de1aea75db",
+    "13": "7058526f-00e3-48d3-845a-b1de1aea75db",
+    "14": "7058526f-00e3-48d3-845a-b1de1aea75db"
+  }
+}
